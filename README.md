@@ -70,21 +70,95 @@ This direct feedback loop helps AI assistants like Claude understand what works 
 - **Get Godot Version**: Retrieve the installed Godot version
 - **List Godot Projects**: Find Godot projects in a specified directory
 - **Project Analysis**: Get detailed information about project structure
-- **Scene Management**:
-  - Create new scenes with specified root node types
-  - Add nodes to existing scenes with customizable properties
-  - Load sprites and textures into Sprite2D nodes
-  - Export 3D scenes as MeshLibrary resources for GridMap
-  - Save scenes with options for creating variants
-- **UID Management** (for Godot 4.4+):
-  - Get UID for specific files
-  - Update UID references by resaving resources
+
+### Scene Management
+- Create new scenes with specified root node types
+- Add, remove, modify, and duplicate nodes
+- Query node information and properties
+- Load sprites and textures into Sprite2D nodes
+- Export 3D scenes as MeshLibrary resources for GridMap
+- Save scenes with options for creating variants
+
+### Script Management
+- Create GDScript files with templates (node, resource, custom)
+- Attach scripts to nodes
+- Validate script syntax with detailed error reporting
+- Get node methods and properties
+
+### Resource Management
+- Import assets with custom settings
+- Create resources (materials, shaders, etc.)
+- List project assets with metadata
+- Configure import settings
+
+### Signal System
+- Create custom signals in scripts
+- Connect signals between nodes with validation
+- List available signals on nodes
+- Disconnect signal connections
+
+### Physics System (Godot 4.5+)
+- Add physics bodies (CharacterBody2D/3D, RigidBody2D/3D, etc.)
+- Configure physics properties and materials
+- Setup collision layers and masks
+- Create Area2D/Area3D with signal connections
+
+### UI System
+- Create UI elements (Button, Label, TextEdit, Panel, etc.)
+- Apply themes to UI elements
+- Setup container layouts
+- Create menus with buttons and navigation
+
+### Animation System
+- Create AnimationPlayer nodes with animations
+- Add keyframes to animation tracks
+- Setup AnimationTree with state machines
+- Add particle systems (GPUParticles2D/3D)
+
+### Project Management
+- Update project settings
+- Configure input action mappings
+- Setup autoload singletons
+- Manage editor plugins (list, enable, disable)
+
+### Debug Module
+- Run projects with full debug output capture
+- Get error context with stack traces
+- Intelligent error analysis with solutions
+- Integration with documentation for contextual help
+
+### Documentation Module (Godot 4.5+)
+- Get detailed class information from official Godot documentation
+- Search documentation for classes, methods, properties, and signals
+- Get method information with parameters and examples
+- Access best practices for common Godot topics (physics, signals, GDScript, etc.)
+- Automatic caching for improved performance
+- Support for Godot 4.5+ features and deprecated feature warnings
+
+### UID Management (Godot 4.4+)
+- Get UID for specific files
+- Update UID references by resaving resources
 
 ## Requirements
 
-- [Godot Engine](https://godotengine.org/download) installed on your system
+- **[Godot Engine 4.5.0 or later](https://godotengine.org/download)** installed on your system
+  - The server validates your Godot version on startup
+  - Minimum version: 4.5.0
+  - Recommended: Latest stable version
 - Node.js and npm
 - An AI assistant that supports MCP (Cline, Cursor, etc.)
+
+### Version Compatibility
+
+This MCP server requires **Godot 4.5.0 or later** to ensure compatibility with modern Godot features:
+
+- **UID System**: Unique identifiers for resources (4.4+)
+- **Compositor Effects**: Advanced rendering pipeline (4.5+)
+- **Enhanced Physics**: Improved physics material system (4.5+)
+- **Improved GDScript**: Better parser and type checking (4.5+)
+- **Modern Node Types**: Latest node types and APIs (4.5+)
+
+The server will automatically validate your Godot version when executing operations and provide clear error messages if your version is incompatible.
 
 ## Installation and Configuration
 
@@ -174,34 +248,96 @@ You can customize the server behavior with these environment variables:
 - `GODOT_PATH`: Path to the Godot executable (overrides automatic detection)
 - `DEBUG`: Set to "true" to enable detailed server-side debug logging
 
+## Checking Your Godot Version
+
+You can verify your Godot installation and check supported features using the `get_godot_version` tool:
+
+```text
+"What version of Godot do I have installed?"
+"Check if my Godot version supports all features"
+```
+
+The tool will display:
+- Your installed Godot version
+- Compatibility status with the MCP server
+- List of supported features based on your version
+
 ## Example Prompts
 
 Once configured, your AI assistant will automatically run the MCP server when needed. You can use prompts like:
 
+### Basic Operations
 ```text
 "Launch the Godot editor for my project at /path/to/project"
-
 "Run my Godot project and show me any errors"
-
 "Get information about my Godot project structure"
+"What version of Godot do I have installed?"
+```
 
-"Analyze my Godot project structure and suggest improvements"
-
-"Help me debug this error in my Godot project: [paste error]"
-
-"Write a GDScript for a character controller with double jump and wall sliding"
-
-"Create a new scene with a Player node in my Godot project"
-
+### Scene & Node Management
+```text
+"Create a new 2D scene with a CharacterBody2D root node"
 "Add a Sprite2D node to my player scene and load the character texture"
+"Remove the old enemy node from my level scene"
+"Modify the player node to set its position to (100, 200)"
+"Duplicate the enemy node and place it at a different position"
+```
 
+### Script Management
+```text
+"Create a new GDScript for a player controller"
+"Attach the player script to the CharacterBody2D node"
+"Validate my player.gd script for syntax errors"
+"Show me all methods available on the CharacterBody2D node"
+```
+
+### Physics & Collision
+```text
+"Add a CharacterBody2D with a capsule collision shape to my scene"
+"Setup collision layers for player, enemies, and environment"
+"Create an Area2D for detecting when the player enters a zone"
+"Configure physics properties for my RigidBody2D"
+```
+
+### UI & Menus
+```text
+"Create a main menu UI with Start, Options, and Quit buttons"
+"Add a Label to show the player's score"
+"Setup a VBoxContainer layout for my settings menu"
+"Apply a custom theme to my UI elements"
+```
+
+### Animation & Particles
+```text
+"Create an AnimationPlayer for my character with idle and walk animations"
+"Add keyframes to animate the player's position"
+"Setup an AnimationTree with a state machine for character states"
+"Add particle effects for the player's jump"
+```
+
+### Project Configuration
+```text
+"Update my project settings to set the window size to 1920x1080"
+"Configure input actions for move_left, move_right, and jump"
+"Setup GameManager as an autoload singleton"
+"List all installed editor plugins"
+```
+
+### Debugging & Documentation
+```text
+"Run my project in debug mode and capture all output"
+"Help me understand this error: [paste error message]"
+"Show me documentation for the CharacterBody2D class"
+"Search the Godot docs for move_and_slide"
+"What are the best practices for using signals in Godot?"
+```
+
+### Advanced Operations
+```text
 "Export my 3D models as a MeshLibrary for use with GridMap"
-
-"Create a UI scene with buttons and labels for my game's main menu"
-
 "Get the UID for a specific script file in my Godot 4.4 project"
-
-"Update UID references in my Godot project after upgrading to 4.4"
+"Connect the button's pressed signal to the start_game method"
+"Import a texture with specific compression settings"
 ```
 
 ## Implementation Details
@@ -226,6 +362,7 @@ The bundled script accepts operation type and parameters as JSON, allowing for f
 ## Troubleshooting
 
 - **Godot Not Found**: Set the GODOT_PATH environment variable to your Godot executable
+- **Version Incompatibility**: If you see version errors, upgrade to Godot 4.5.0 or later from [godotengine.org](https://godotengine.org/download)
 - **Connection Issues**: Ensure the server is running and restart your AI assistant
 - **Invalid Project Path**: Ensure the path points to a directory containing a project.godot file
 - **Build Issues**: Make sure all dependencies are installed by running `npm install`
@@ -233,6 +370,15 @@ The bundled script accepts operation type and parameters as JSON, allowing for f
 -   Ensure the MCP server shows up and is enabled in Cursor settings (Settings > MCP)
 -   MCP tools can only be run using the Agent chat profile (Cursor Pro or Business subscription)
 -   Use "Yolo Mode" to automatically run MCP tool requests
+
+### Version-Related Issues
+
+If you encounter version-related errors:
+
+1. Check your Godot version: Run `godot --version` in your terminal
+2. Verify minimum version: Ensure you have Godot 4.5.0 or later
+3. Update Godot: Download the latest version from [godotengine.org](https://godotengine.org/download)
+4. Set GODOT_PATH: If you have multiple Godot versions, set the GODOT_PATH environment variable to point to the correct one
 
 ## License
 
