@@ -172,27 +172,35 @@ export class DocumentationModule {
    * Get class information from Godot documentation
    */
   async getClassInfo(className: string): Promise<ClassInfo> {
+    console.log(`[DOC MODULE] getClassInfo called for: ${className}`);
+    console.log(`[DOC MODULE] Cache path: ${this.docsCachePath}`);
+    console.log(`[DOC MODULE] Memory cache size: ${this.cache.size}`);
+    
     // Check memory cache first
     if (this.cache.has(className)) {
-      this.logDebug(`Returning cached class info for: ${className}`);
+      console.log(`[DOC MODULE] Returning from memory cache: ${className}`);
       return this.cache.get(className)!;
     }
 
     // Check disk cache
     const cacheFile = join(this.docsCachePath, `${className}.json`);
+    console.log(`[DOC MODULE] Checking disk cache: ${cacheFile}`);
+    console.log(`[DOC MODULE] Cache file exists: ${existsSync(cacheFile)}`);
+    
     if (existsSync(cacheFile)) {
       try {
         const cached = JSON.parse(readFileSync(cacheFile, 'utf-8'));
         this.cache.set(className, cached);
-        this.logDebug(`Loaded class info from disk cache: ${className}`);
+        console.log(`[DOC MODULE] Loaded from disk cache: ${className}`);
+        console.log(`[DOC MODULE] Cached class has ${cached.methods?.length || 0} methods`);
         return cached;
       } catch (error) {
-        this.logDebug(`Failed to load cached class info: ${error}`);
+        console.error(`[DOC MODULE] Failed to load cached class info:`, error);
       }
     }
 
     // Fetch from Godot
-    this.logDebug(`Fetching class info for: ${className}`);
+    console.log(`[DOC MODULE] Fetching from Godot: ${className}`);
     const classInfo = await this.fetchClassInfo(className);
 
     // Cache in memory and on disk
@@ -215,11 +223,11 @@ export class DocumentationModule {
       console.log(`[DOC MODULE] Fetching class info for: ${className}`);
       console.log(`[DOC MODULE] Godot path: ${this.godotPath}`);
       console.log(`[DOC MODULE] Cache path: ${this.docsCachePath}`);
-      
+
       // Generate documentation using Godot's --doctool
       const docToolPath = join(this.docsCachePath, 'doctool');
       console.log(`[DOC MODULE] DocTool path: ${docToolPath}`);
-      
+
       if (!existsSync(docToolPath)) {
         console.log(`[DOC MODULE] Creating doctool directory...`);
         mkdirSync(docToolPath, { recursive: true });
@@ -249,13 +257,13 @@ export class DocumentationModule {
       let xmlPath = join(docToolPath, 'doc', 'classes', `${className}.xml`);
       console.log(`[DOC MODULE] Checking primary XML path: ${xmlPath}`);
       console.log(`[DOC MODULE] Primary path exists: ${existsSync(xmlPath)}`);
-      
+
       if (!existsSync(xmlPath)) {
         // Fallback to old location
         xmlPath = join(docToolPath, 'classes', `${className}.xml`);
         console.log(`[DOC MODULE] Checking fallback XML path: ${xmlPath}`);
         console.log(`[DOC MODULE] Fallback path exists: ${existsSync(xmlPath)}`);
-        
+
         if (!existsSync(xmlPath)) {
           // List what files are actually there
           const docClassesPath = join(docToolPath, 'doc', 'classes');
@@ -270,7 +278,7 @@ export class DocumentationModule {
       this.logDebug(`Reading XML from: ${xmlPath}`);
       const xmlContent = readFileSync(xmlPath, 'utf-8');
       this.logDebug(`XML content length: ${xmlContent.length} bytes`);
-      
+
       const classInfo = await this.parseClassXML(xmlContent, className);
       this.logDebug(`Successfully parsed class info for ${className}`);
 
@@ -279,7 +287,7 @@ export class DocumentationModule {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`[DOC MODULE] Error fetching class info for ${className}: ${errorMessage}`);
       console.error(`[DOC MODULE] Stack trace:`, error);
-      
+
       // Return minimal class info if fetch fails
       return {
         name: className,
