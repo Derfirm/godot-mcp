@@ -126,7 +126,7 @@ export class DocumentationModule {
   constructor(godotPath: string, cacheDir?: string, debugMode: boolean = false) {
     this.godotPath = godotPath;
     this.debugMode = debugMode;
-    
+
     // Priority: 1. Provided cacheDir, 2. MCP_CACHE_DIR env var, 3. User's home directory
     if (cacheDir) {
       this.docsCachePath = cacheDir;
@@ -136,7 +136,7 @@ export class DocumentationModule {
       const homeDir = process.env.HOME || process.env.USERPROFILE || process.cwd();
       this.docsCachePath = join(homeDir, '.godot-docs-cache');
     }
-    
+
     // Ensure cache directory exists
     try {
       if (!existsSync(this.docsCachePath)) {
@@ -194,7 +194,7 @@ export class DocumentationModule {
     // Fetch from Godot
     this.logDebug(`Fetching class info for: ${className}`);
     const classInfo = await this.fetchClassInfo(className);
-    
+
     // Cache in memory and on disk
     this.cache.set(className, classInfo);
     try {
@@ -212,10 +212,19 @@ export class DocumentationModule {
    */
   private async fetchClassInfo(className: string): Promise<ClassInfo> {
     try {
+      console.log(`[DOC MODULE] Fetching class info for: ${className}`);
+      console.log(`[DOC MODULE] Godot path: ${this.godotPath}`);
+      console.log(`[DOC MODULE] Cache path: ${this.docsCachePath}`);
+      
       // Generate documentation using Godot's --doctool
       const docToolPath = join(this.docsCachePath, 'doctool');
+      console.log(`[DOC MODULE] DocTool path: ${docToolPath}`);
+      
       if (!existsSync(docToolPath)) {
+        console.log(`[DOC MODULE] Creating doctool directory...`);
         mkdirSync(docToolPath, { recursive: true });
+      } else {
+        console.log(`[DOC MODULE] DocTool directory already exists`);
       }
 
       // Run Godot with --doctool to generate XML documentation
@@ -225,37 +234,57 @@ export class DocumentationModule {
         ? `godot --doctool "${docToolPath}" --no-docbase --headless --quit`
         : `"${this.godotPath}" --doctool "${docToolPath}" --no-docbase --headless --quit`;
 
-      this.logDebug(`Running doctool command: ${command}`);
-      
+      console.log(`[DOC MODULE] Running doctool command: ${command}`);
+
       try {
-        await execAsync(command);
+        const result = await execAsync(command);
+        console.log(`[DOC MODULE] doctool completed successfully`);
       } catch (error) {
         // doctool may exit with non-zero even on success, check if files were created
-        this.logDebug(`doctool command completed (may have non-zero exit): ${error}`);
+        console.log(`[DOC MODULE] doctool command completed (may have non-zero exit):`, error);
       }
 
       // Parse the generated XML file
       // Try both possible locations (Godot 4.5+ uses doc/classes/)
       let xmlPath = join(docToolPath, 'doc', 'classes', `${className}.xml`);
+      console.log(`[DOC MODULE] Checking primary XML path: ${xmlPath}`);
+      console.log(`[DOC MODULE] Primary path exists: ${existsSync(xmlPath)}`);
+      
       if (!existsSync(xmlPath)) {
         // Fallback to old location
         xmlPath = join(docToolPath, 'classes', `${className}.xml`);
+        console.log(`[DOC MODULE] Checking fallback XML path: ${xmlPath}`);
+        console.log(`[DOC MODULE] Fallback path exists: ${existsSync(xmlPath)}`);
+        
         if (!existsSync(xmlPath)) {
-          throw new Error(`Documentation not found for class: ${className}`);
+          // List what files are actually there
+          const docClassesPath = join(docToolPath, 'doc', 'classes');
+          if (existsSync(docClassesPath)) {
+            const files = require('fs').readdirSync(docClassesPath);
+            console.log(`[DOC MODULE] Files in doc/classes (first 10):`, files.slice(0, 10));
+          }
+          throw new Error(`Documentation XML file not found for class: ${className}`);
         }
       }
 
+      this.logDebug(`Reading XML from: ${xmlPath}`);
       const xmlContent = readFileSync(xmlPath, 'utf-8');
+      this.logDebug(`XML content length: ${xmlContent.length} bytes`);
+      
       const classInfo = await this.parseClassXML(xmlContent, className);
+      this.logDebug(`Successfully parsed class info for ${className}`);
 
       return classInfo;
     } catch (error) {
-      this.logDebug(`Error fetching class info: ${error}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`[DOC MODULE] Error fetching class info for ${className}: ${errorMessage}`);
+      console.error(`[DOC MODULE] Stack trace:`, error);
+      
       // Return minimal class info if fetch fails
       return {
         name: className,
         inherits: '',
-        description: `Documentation not available for ${className}`,
+        description: `Documentation not available for ${className}. Error: ${errorMessage}`,
         methods: [],
         properties: [],
         signals: [],
@@ -276,15 +305,15 @@ export class DocumentationModule {
 
       const briefDesc = this.extractDescription(classData.brief_description);
       const fullDesc = this.extractDescription(classData.description);
-      
+
       // If no description available, provide a helpful message
       let description = briefDesc || fullDesc;
       if (!description || description.trim() === '') {
         description = `${className} class in Godot ${this.godotVersion}. ` +
-                     `Inherits from ${classData.$.inherits || 'Object'}. ` +
-                     `For full documentation, visit: ${this.docsBaseUrl}classes/class_${className.toLowerCase()}.html`;
+          `Inherits from ${classData.$.inherits || 'Object'}. ` +
+          `For full documentation, visit: ${this.docsBaseUrl}classes/class_${className.toLowerCase()}.html`;
       }
-      
+
       const classInfo: ClassInfo = {
         name: className,
         inherits: classData.$.inherits || '',
@@ -422,7 +451,7 @@ export class DocumentationModule {
   async getMethodInfo(className: string, methodName: string): Promise<MethodInfo | null> {
     const classInfo = await this.getClassInfo(className);
     const method = classInfo.methods.find(m => m.name === methodName);
-    
+
     if (!method) {
       // Check parent class
       if (classInfo.inherits) {
@@ -439,7 +468,7 @@ export class DocumentationModule {
    */
   async searchDocs(query: string): Promise<SearchResult[]> {
     const cacheKey = query.toLowerCase();
-    
+
     // Check cache
     if (this.searchCache.has(cacheKey)) {
       this.logDebug(`Returning cached search results for: ${query}`);
@@ -546,10 +575,10 @@ export class DocumentationModule {
    */
   async getBestPractices(topic: string): Promise<BestPractice[]> {
     this.logDebug(`Getting best practices for: ${topic}`);
-    
+
     // Built-in best practices for common topics
     const practices = this.getBuiltInBestPractices(topic);
-    
+
     return practices;
   }
 
