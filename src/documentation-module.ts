@@ -126,14 +126,37 @@ export class DocumentationModule {
   constructor(godotPath: string, cacheDir?: string, debugMode: boolean = false) {
     this.godotPath = godotPath;
     this.debugMode = debugMode;
-    this.docsCachePath = cacheDir || join(process.cwd(), '.godot-docs-cache');
     
-    // Ensure cache directory exists
-    if (!existsSync(this.docsCachePath)) {
-      mkdirSync(this.docsCachePath, { recursive: true });
+    // Priority: 1. Provided cacheDir, 2. MCP_CACHE_DIR env var, 3. User's home directory
+    if (cacheDir) {
+      this.docsCachePath = cacheDir;
+    } else if (process.env.MCP_CACHE_DIR) {
+      this.docsCachePath = join(process.env.MCP_CACHE_DIR, '.godot-docs-cache');
+    } else {
+      const homeDir = process.env.HOME || process.env.USERPROFILE || process.cwd();
+      this.docsCachePath = join(homeDir, '.godot-docs-cache');
     }
     
-    this.logDebug(`Documentation module initialized with cache at: ${this.docsCachePath}`);
+    // Ensure cache directory exists
+    try {
+      if (!existsSync(this.docsCachePath)) {
+        mkdirSync(this.docsCachePath, { recursive: true });
+      }
+      this.logDebug(`Documentation module initialized with cache at: ${this.docsCachePath}`);
+    } catch (error) {
+      console.error(`[DOC MODULE] Failed to create cache directory at ${this.docsCachePath}: ${error}`);
+      // Fall back to temp directory
+      const tempDir = process.env.TMPDIR || process.env.TEMP || '/tmp';
+      this.docsCachePath = join(tempDir, '.godot-docs-cache');
+      try {
+        if (!existsSync(this.docsCachePath)) {
+          mkdirSync(this.docsCachePath, { recursive: true });
+        }
+        console.warn(`[DOC MODULE] Using fallback cache directory: ${this.docsCachePath}`);
+      } catch (fallbackError) {
+        throw new Error(`Failed to create cache directory: ${fallbackError}`);
+      }
+    }
   }
 
   /**

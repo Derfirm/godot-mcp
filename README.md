@@ -482,12 +482,26 @@ godot --doctool .godot-docs-cache/doctool --no-docbase --headless --quit
 
 ### Documentation Cache
 
-- **Location**: `.godot-docs-cache/` in the project root
+- **Default Location**: `~/.godot-docs-cache/` (user's home directory)
+- **Custom Location**: Set `MCP_CACHE_DIR` environment variable to specify a different directory
 - **Contents**: 
   - `doctool/` - Raw XML documentation from Godot
   - `*.json` - Parsed and cached class information
 - **Size**: Typically 10-50 MB depending on usage
 - **Clearing**: Delete the `.godot-docs-cache/` directory to regenerate
+
+**Environment Variable Example:**
+```bash
+# Set custom cache directory
+export MCP_CACHE_DIR=/path/to/your/cache
+
+# Or in your MCP settings
+{
+  "env": {
+    "MCP_CACHE_DIR": "/path/to/your/cache"
+  }
+}
+```
 
 ### Using Documentation Tools
 
