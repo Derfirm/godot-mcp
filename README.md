@@ -119,7 +119,7 @@ The server automatically validates your Godot version on startup and provides cl
 Clone the repository and build the MCP server:
 
 ```bash
-git clone https://github.com/Coding-Solo/godot-mcp.git
+git clone https://github.com/Derfirm/godot-mcp.git
 cd godot-mcp
 npm install
 npm run build
