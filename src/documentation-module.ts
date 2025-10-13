@@ -219,9 +219,11 @@ export class DocumentationModule {
       }
 
       // Run Godot with --doctool to generate XML documentation
+      // Note: --no-docbase generates structure without descriptions, but keeps files
+      // We'll enhance descriptions from online docs or provide basic info
       const command = this.godotPath === 'godot'
-        ? `godot --doctool "${docToolPath}" --no-docbase`
-        : `"${this.godotPath}" --doctool "${docToolPath}" --no-docbase`;
+        ? `godot --doctool "${docToolPath}" --no-docbase --headless --quit`
+        : `"${this.godotPath}" --doctool "${docToolPath}" --no-docbase --headless --quit`;
 
       this.logDebug(`Running doctool command: ${command}`);
       
@@ -233,9 +235,14 @@ export class DocumentationModule {
       }
 
       // Parse the generated XML file
-      const xmlPath = join(docToolPath, 'classes', `${className}.xml`);
+      // Try both possible locations (Godot 4.5+ uses doc/classes/)
+      let xmlPath = join(docToolPath, 'doc', 'classes', `${className}.xml`);
       if (!existsSync(xmlPath)) {
-        throw new Error(`Documentation not found for class: ${className}`);
+        // Fallback to old location
+        xmlPath = join(docToolPath, 'classes', `${className}.xml`);
+        if (!existsSync(xmlPath)) {
+          throw new Error(`Documentation not found for class: ${className}`);
+        }
       }
 
       const xmlContent = readFileSync(xmlPath, 'utf-8');
@@ -267,11 +274,21 @@ export class DocumentationModule {
       const result = await parseStringPromise(xmlContent);
       const classData = result.class;
 
+      const briefDesc = this.extractDescription(classData.brief_description);
+      const fullDesc = this.extractDescription(classData.description);
+      
+      // If no description available, provide a helpful message
+      let description = briefDesc || fullDesc;
+      if (!description || description.trim() === '') {
+        description = `${className} class in Godot ${this.godotVersion}. ` +
+                     `Inherits from ${classData.$.inherits || 'Object'}. ` +
+                     `For full documentation, visit: ${this.docsBaseUrl}classes/class_${className.toLowerCase()}.html`;
+      }
+      
       const classInfo: ClassInfo = {
         name: className,
         inherits: classData.$.inherits || '',
-        description: this.extractDescription(classData.brief_description) || 
-                     this.extractDescription(classData.description) || '',
+        description,
         methods: [],
         properties: [],
         signals: [],

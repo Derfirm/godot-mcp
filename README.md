@@ -478,7 +478,10 @@ godot --doctool .godot-docs-cache/doctool --no-docbase --headless --quit
 /usr/bin/godot --doctool .godot-docs-cache/doctool --no-docbase --headless --quit
 ```
 
-**Note**: The `--headless` and `--quit` flags ensure Godot runs without a GUI and exits after generating documentation.
+**Note**: 
+- The `--headless` and `--quit` flags ensure Godot runs without a GUI and exits after generating documentation
+- The `--no-docbase` flag generates class structure (methods, properties, signals) without detailed descriptions
+- The MCP server provides links to online documentation for full details
 
 ### Documentation Cache
 
