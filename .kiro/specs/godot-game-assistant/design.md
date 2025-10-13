@@ -2,24 +2,24 @@
 
 ## Overview
 
-Этот документ описывает архитектурный дизайн для расширения Godot MCP сервера до полноценного помощника для создания игр. Дизайн основан на существующей архитектуре с bundled GDScript подходом и расширяет её для поддержки всех требований.
+This document describes the architectural design for extending the Godot MCP server into a full-featured game development assistant. The design is based on the existing architecture with a bundled GDScript approach and extends it to support all requirements.
 
-### Целевая версия: Godot 4.5+
+### Target Version: Godot 4.5+
 
-Дизайн ориентирован на Godot 4.5 и выше, используя современные API и возможности:
-- **UID System**: Полная поддержка системы уникальных идентификаторов ресурсов (введена в 4.4, стабилизирована в 4.5)
-- **Enhanced GDScript**: Использование улучшенного GDScript 2.0 с типизацией и новыми возможностями
-- **Modern Node Types**: Поддержка всех современных типов узлов (CharacterBody3D, GPUParticles3D, etc.)
-- **Compositor Effects**: Поддержка новой системы композитных эффектов
-- **Improved Physics**: Использование улучшенного физического движка Godot 4.5+
+The design targets Godot 4.5 and above, utilizing modern APIs and capabilities:
+- **UID System**: Full support for the unique resource identifier system (introduced in 4.4, stabilized in 4.5)
+- **Enhanced GDScript**: Use of improved GDScript 2.0 with typing and new features
+- **Modern Node Types**: Support for all modern node types (CharacterBody3D, GPUParticles3D, etc.)
+- **Compositor Effects**: Support for the new compositor effects system
+- **Improved Physics**: Use of the improved Godot 4.5+ physics engine
 
-### Ключевые принципы дизайна
+### Key Design Principles
 
-1. **Модульность**: Каждая функциональная область (сцены, скрипты, физика и т.д.) реализуется как отдельный модуль
-2. **Расширяемость**: Архитектура позволяет легко добавлять новые операции без изменения core логики
-3. **Безопасность**: Все операции валидируются и санитизируются перед выполнением
-4. **Современность**: Использование только Godot 4.5+ API без legacy поддержки
-5. **Документация**: Интеграция с официальной документацией Godot 4.5+ для контекстной помощи
+1. **Modularity**: Each functional area (scenes, scripts, physics, etc.) is implemented as a separate module
+2. **Extensibility**: Architecture allows easy addition of new operations without changing core logic
+3. **Security**: All operations are validated and sanitized before execution
+4. **Modernity**: Use only Godot 4.5+ API without legacy support
+5. **Documentation**: Integration with official Godot 4.5+ documentation for contextual help
 
 ## Architecture
 
@@ -61,30 +61,30 @@ graph TB
 
 #### 1. MCP Server Layer (TypeScript)
 
-**Существующие компоненты:**
-- `GodotServer` - основной класс сервера
-- `executeOperation()` - выполнение операций через Godot
-- `detectGodotPath()` - определение пути к Godot
-- Parameter normalization - конвертация snake_case ↔ camelCase
+**Existing Components:**
+- `GodotServer` - main server class
+- `executeOperation()` - operation execution through Godot
+- `detectGodotPath()` - Godot path detection
+- Parameter normalization - snake_case ↔ camelCase conversion
 
-**Новые компоненты:**
-- `OperationRegistry` - реестр всех доступных операций
-- `ValidationLayer` - валидация параметров перед выполнением
-- `CacheManager` - кэширование результатов и документации
-- `VersionManager` - управление совместимостью версий Godot
+**New Components:**
+- `OperationRegistry` - registry of all available operations
+- `ValidationLayer` - parameter validation before execution
+- `CacheManager` - caching of results and documentation
+- `VersionManager` - Godot version compatibility management
 
 #### 2. Godot Operations Script Layer (GDScript)
 
-**Существующие операции:**
-- `create_scene` - создание сцен
-- `add_node` - добавление узлов
-- `load_sprite` - загрузка спрайтов
-- `export_mesh_library` - экспорт MeshLibrary
-- `save_scene` - сохранение сцен
-- `get_uid` - получение UID
-- `resave_resources` - пересохранение ресурсов
+**Existing Operations:**
+- `create_scene` - scene creation
+- `add_node` - node addition
+- `load_sprite` - sprite loading
+- `export_mesh_library` - MeshLibrary export
+- `save_scene` - scene saving
+- `get_uid` - UID retrieval
+- `resave_resources` - resource resaving
 
-**Новые операции (будут добавлены):**
+**New Operations (to be added):**
 - Scene operations: `remove_node`, `modify_node`, `duplicate_node`, `query_node`
 - Script operations: `create_script`, `attach_script`, `validate_script`, `get_node_methods`
 - Resource operations: `import_asset`, `create_resource`, `list_assets`, `configure_import`
@@ -115,7 +115,7 @@ interface CreateSceneParams {
   projectPath: string;
   scenePath: string;
   rootNodeType: string;
-  template?: string; // Предустановленные шаблоны (2D platformer, 3D FPS, etc.)
+  template?: string; // Preset templates (2D platformer, 3D FPS, etc.)
 }
 
 interface ModifyNodeParams {
@@ -578,8 +578,8 @@ interface DebugOperations {
 interface RunSceneParams {
   projectPath: string;
   scenePath: string;
-  debug?: boolean; // Использовать флаг -d
-  additionalArgs?: string[]; // Дополнительные CLI аргументы
+  debug?: boolean; // Use -d flag
+  additionalArgs?: string[]; // Additional CLI arguments
 }
 
 interface SceneRunResult {
@@ -598,19 +598,19 @@ interface ToggleDebugDrawParams {
         'sdfgi' | 'sdfgi_probes' | 'gi_buffer' | 'disable_lod' | 'cluster_omni_lights' |
         'cluster_spot_lights' | 'cluster_decals' | 'cluster_reflection_probes' |
         'occluders' | 'motion_vectors' | 'internal_buffer'; // Godot 4.5+ debug draw modes
-  viewport?: string; // Путь к конкретному Viewport узлу
+  viewport?: string; // Path to specific Viewport node
 }
 
 interface RemoteTreeDumpParams {
   projectPath: string;
   filter?: {
-    nodeType?: string; // Фильтр по типу узла (например, "CharacterBody2D")
-    nodeName?: string; // Фильтр по имени узла (regex поддержка)
-    hasScript?: boolean; // Только узлы со скриптами
-    depth?: number; // Максимальная глубина дерева
+    nodeType?: string; // Filter by node type (e.g., "CharacterBody2D")
+    nodeName?: string; // Filter by node name (regex support)
+    hasScript?: boolean; // Only nodes with scripts
+    depth?: number; // Maximum tree depth
   };
-  includeProperties?: boolean; // Включить свойства узлов
-  includeSignals?: boolean; // Включить подключенные сигналы
+  includeProperties?: boolean; // Include node properties
+  includeSignals?: boolean; // Include connected signals
 }
 
 interface TreeDumpResult {
@@ -632,8 +632,8 @@ interface NodeDumpInfo {
 interface CaptureScreenshotParams {
   projectPath: string;
   outputPath: string;
-  scenePath?: string; // Если указано, запустить сцену и сделать скриншот
-  delay?: number; // Задержка перед захватом (в секундах)
+  scenePath?: string; // If specified, run scene and take screenshot
+  delay?: number; // Delay before capture (in seconds)
   size?: { width: number; height: number };
 }
 
@@ -642,17 +642,17 @@ interface CaptureMovieParams {
   scenePath: string;
   outputPath: string;
   settings: {
-    fps?: number; // По умолчанию 60
-    duration?: number; // Длительность в секундах
+    fps?: number; // Default 60
+    duration?: number; // Duration in seconds
     quality?: number; // 0.0 - 1.0
-    format?: 'avi' | 'png_sequence'; // Godot 4.5+ Movie Maker форматы
-    speaker_mode?: 'stereo' | 'surround'; // Аудио режим
+    format?: 'avi' | 'png_sequence'; // Godot 4.5+ Movie Maker formats
+    speaker_mode?: 'stereo' | 'surround'; // Audio mode
   };
 }
 
 interface ListMissingAssetsParams {
   projectPath: string;
-  checkTypes?: ('texture' | 'audio' | 'script' | 'scene' | 'material' | 'mesh')[]; // Типы для проверки
+  checkTypes?: ('texture' | 'audio' | 'script' | 'scene' | 'material' | 'mesh')[]; // Types to check
 }
 
 interface MissingAssetsReport {
@@ -665,8 +665,8 @@ interface MissingAssetsReport {
 interface MissingAssetInfo {
   path: string;
   type: string;
-  referencedBy: string[]; // Какие файлы ссылаются на этот ассет
-  suggestedFixes?: string[]; // Возможные решения
+  referencedBy: string[]; // Which files reference this asset
+  suggestedFixes?: string[]; // Possible solutions
 }
 
 interface DebugSession {
@@ -687,17 +687,17 @@ interface ErrorInfo {
 #### GDScript Implementation (Godot 4.5+)
 
 ```gdscript
-# Запуск конкретной сцены в debug режиме
+# Run specific scene in debug mode
 func run_scene(params: Dictionary) -> Dictionary:
-    # Эта операция выполняется через TypeScript, так как требует запуск нового процесса
-    # GDScript часть только для подготовки параметров
+    # This operation is executed through TypeScript as it requires launching a new process
+    # GDScript part is only for parameter preparation
     var scene_path := params.scene_path as String
     
-    # Валидация сцены
+    # Scene validation
     if not FileAccess.file_exists(scene_path):
         return create_error("Scene not found: " + scene_path)
     
-    # Возвращаем параметры для CLI запуска
+    # Return parameters for CLI launch
     return {
         "success": true,
         "cli_command": "godot4",
@@ -706,17 +706,17 @@ func run_scene(params: Dictionary) -> Dictionary:
                 params.get("additional_args", [])
     }
 
-# Переключение режима отрисовки для диагностики
+# Toggle rendering mode for diagnostics
 func toggle_debug_draw(params: Dictionary) -> Dictionary:
     var mode_str := params.mode as String
     var viewport_path := params.get("viewport", "/root") as String
     
-    # Получаем viewport
+    # Get viewport
     var viewport: Viewport = get_node(viewport_path)
     if not viewport:
         return create_error("Viewport not found: " + viewport_path)
     
-    # Маппинг строковых значений на enum (Godot 4.5+)
+    # Map string values to enum (Godot 4.5+)
     var debug_draw_modes := {
         "disabled": Viewport.DEBUG_DRAW_DISABLED,
         "unshaded": Viewport.DEBUG_DRAW_UNSHADED,
@@ -758,7 +758,7 @@ func toggle_debug_draw(params: Dictionary) -> Dictionary:
         "viewport": viewport_path
     }
 
-# Дамп удалённого дерева сцен во время рантайма
+# Dump remote scene tree during runtime
 func remote_tree_dump(params: Dictionary) -> Dictionary:
     var root := get_tree().root
     var filter := params.get("filter", {}) as Dictionary
@@ -768,7 +768,7 @@ func remote_tree_dump(params: Dictionary) -> Dictionary:
     var nodes: Array[Dictionary] = []
     var total_count := 0
     
-    # Рекурсивный обход дерева
+    # Recursive tree traversal
     _dump_node_recursive(root, nodes, filter, include_properties, include_signals, 0, total_count)
     
     return {
@@ -787,18 +787,18 @@ func _dump_node_recursive(
     current_depth: int,
     total_count: int
 ) -> void:
-    # Проверка глубины
+    # Check depth
     var max_depth := filter.get("depth", -1) as int
     if max_depth >= 0 and current_depth > max_depth:
         return
     
-    # Фильтрация по типу
+    # Filter by type
     if filter.has("node_type"):
         var type_filter := filter.node_type as String
         if not node.is_class(type_filter):
             return
     
-    # Фильтрация по имени (regex)
+    # Filter by name (regex)
     if filter.has("node_name"):
         var name_filter := filter.node_name as String
         var regex := RegEx.new()
@@ -806,12 +806,12 @@ func _dump_node_recursive(
         if not regex.search(node.name):
             return
     
-    # Фильтрация по наличию скрипта
+    # Filter by script presence
     if filter.get("has_script", false):
         if not node.get_script():
             return
     
-    # Создаём информацию об узле
+    # Create node information
     var node_info := {
         "path": str(node.get_path()),
         "type": node.get_class(),
@@ -819,7 +819,7 @@ func _dump_node_recursive(
         "children": []
     }
     
-    # Добавляем свойства если запрошено
+    # Add properties if requested
     if include_properties:
         var properties := {}
         for prop in node.get_property_list():
@@ -827,7 +827,7 @@ func _dump_node_recursive(
                 properties[prop.name] = node.get(prop.name)
         node_info["properties"] = properties
     
-    # Добавляем сигналы если запрошено
+    # Add signals if requested
     if include_signals:
         var signals: Array[Dictionary] = []
         for sig in node.get_signal_list():
@@ -840,43 +840,43 @@ func _dump_node_recursive(
         if signals.size() > 0:
             node_info["signals"] = signals
     
-    # Добавляем скрипт если есть
+    # Add script if present
     var script := node.get_script()
     if script:
         node_info["script"] = script.resource_path
     
-    # Добавляем детей
+    # Add children
     for child in node.get_children():
         node_info.children.append(str(child.get_path()))
     
     result.append(node_info)
     total_count += 1
     
-    # Рекурсивно обрабатываем детей
+    # Recursively process children
     for child in node.get_children():
         _dump_node_recursive(child, result, filter, include_properties, include_signals, current_depth + 1, total_count)
 
-# Захват скриншота
+# Capture screenshot
 func capture_screenshot(params: Dictionary) -> Dictionary:
     var output_path := params.output_path as String
     var delay := params.get("delay", 0.0) as float
     
-    # Ждём если указана задержка
+    # Wait if delay is specified
     if delay > 0:
         await get_tree().create_timer(delay).timeout
     
-    # Получаем viewport
+    # Get viewport
     var viewport := get_viewport()
     
-    # Изменяем размер если указано
+    # Resize if specified
     if params.has("size"):
         var size := params.size as Dictionary
         viewport.size = Vector2i(size.width, size.height)
     
-    # Захватываем изображение (Godot 4.5+)
+    # Capture image (Godot 4.5+)
     var image := viewport.get_texture().get_image()
     
-    # Сохраняем
+    # Save
     var error := image.save_png(output_path)
     
     return {
@@ -885,7 +885,7 @@ func capture_screenshot(params: Dictionary) -> Dictionary:
         "size": {"width": image.get_width(), "height": image.get_height()}
     }
 
-# Проверка отсутствующих ассетов
+# Check for missing assets
 func list_missing_assets(params: Dictionary) -> Dictionary:
     var project_path := params.project_path as String
     var check_types := params.get("check_types", ["texture", "audio", "script", "scene", "material", "mesh"]) as Array
@@ -893,27 +893,27 @@ func list_missing_assets(params: Dictionary) -> Dictionary:
     var missing: Array[Dictionary] = []
     var checked_paths: Array[String] = []
     
-    # Сканируем все .tscn и .tres файлы
+    # Scan all .tscn and .tres files
     var files := _scan_project_files(project_path, [".tscn", ".tres", ".gd"])
     
     for file_path in files:
         checked_paths.append(file_path)
         var file_content := FileAccess.get_file_as_string(file_path)
         
-        # Ищем ссылки на ресурсы
+        # Search for resource references
         var resource_refs := _extract_resource_references(file_content)
         
         for ref in resource_refs:
             var resource_path := ref.path as String
             var resource_type := ref.type as String
             
-            # Проверяем тип
+            # Check type
             if not check_types.has(resource_type):
                 continue
             
-            # Проверяем существование
+            # Check existence
             if not FileAccess.file_exists(resource_path) and not ResourceLoader.exists(resource_path):
-                # Ищем существующую запись
+                # Search for existing entry
                 var existing := missing.filter(func(item): return item.path == resource_path)
                 
                 if existing.is_empty():
@@ -973,7 +973,7 @@ func _extract_resource_references(content: String) -> Array[Dictionary]:
     var refs: Array[Dictionary] = []
     var regex := RegEx.new()
     
-    # Паттерн для ExtResource и SubResource
+    # Pattern for ExtResource and SubResource
     regex.compile('ExtResource\\("([^"]+)"\\)|path="([^"]+)"|load\\("([^"]+)"\\)')
     
     for match in regex.search_all(content):
@@ -1013,7 +1013,7 @@ func _guess_resource_type(path: String) -> String:
 func _generate_fix_suggestions(path: String, type: String) -> Array[String]:
     var suggestions: Array[String] = []
     
-    # Проверяем похожие файлы
+    # Check for similar files
     var dir_path := path.get_base_dir()
     var file_name := path.get_file()
     
@@ -1037,7 +1037,7 @@ class DebugModule {
   private godotPath: string;
   private activeDebugSessions: Map<string, DebugSession> = new Map();
   
-  // Запуск сцены через CLI
+  // Run scene via CLI
   async runScene(params: RunSceneParams): Promise<SceneRunResult> {
     const args = [
       '--path', params.projectPath,
@@ -1079,16 +1079,16 @@ class DebugModule {
     }
   }
   
-  // Захват видео через Movie Maker
+  // Capture video via Movie Maker
   async captureMovie(params: CaptureMovieParams): Promise<OperationResult> {
-    // Godot 4.5+ Movie Maker использует CLI аргументы
+    // Godot 4.5+ Movie Maker uses CLI arguments
     const args = [
       '--path', params.projectPath,
       '--write-movie', params.outputPath,
       params.scenePath
     ];
     
-    // Настройки Movie Maker
+    // Movie Maker settings
     if (params.settings.fps) {
       args.push('--fixed-fps', params.settings.fps.toString());
     }
@@ -1117,7 +1117,7 @@ class DebugModule {
     const lines = stderr.split('\n');
     
     for (const line of lines) {
-      // Парсинг ошибок Godot формата:
+      // Parse Godot format errors:
       // ERROR: <message>
       //    at: <function> (<script>:<line>)
       if (line.startsWith('ERROR:')) {
@@ -1550,10 +1550,10 @@ interface ProjectData {
 
 ### Error Categories
 
-1. **Validation Errors**: Неправильные параметры, несуществующие пути
-2. **Godot Errors**: Ошибки выполнения в Godot Engine
-3. **File System Errors**: Проблемы с доступом к файлам
-4. **Version Compatibility Errors**: Несовместимость версий Godot
+1. **Validation Errors**: Invalid parameters, non-existent paths
+2. **Godot Errors**: Execution errors in Godot Engine
+3. **File System Errors**: File access issues
+4. **Version Compatibility Errors**: Godot version incompatibility
 
 ### Error Response Format
 
@@ -1600,19 +1600,19 @@ class ErrorHandler {
 ## Testing Strategy
 
 ### Unit Tests
-- Тестирование каждого модуля изолированно
-- Мокирование Godot операций
-- Валидация параметров
+- Test each module in isolation
+- Mock Godot operations
+- Parameter validation
 
 ### Integration Tests
-- Тестирование взаимодействия модулей
-- Реальные операции с тестовым Godot проектом
-- Проверка корректности создаваемых файлов
+- Test module interactions
+- Real operations with test Godot project
+- Verify correctness of created files
 
 ### End-to-End Tests
-- Полные сценарии использования
-- Создание простой игры через MCP
-- Проверка всех операций в связке
+- Complete usage scenarios
+- Create simple game via MCP
+- Test all operations together
 
 ### Test Project Structure
 ```
@@ -1637,14 +1637,14 @@ tests/
 ## Performance Considerations
 
 ### Caching Strategy
-1. **Documentation Cache**: Кэширование информации о классах Godot
-2. **Project Structure Cache**: Кэширование структуры проекта
-3. **Validation Cache**: Кэширование результатов валидации
+1. **Documentation Cache**: Cache Godot class information
+2. **Project Structure Cache**: Cache project structure
+3. **Validation Cache**: Cache validation results
 
 ### Optimization Techniques
-1. **Batch Operations**: Группировка множественных операций
-2. **Lazy Loading**: Загрузка документации по требованию
-3. **Parallel Execution**: Параллельное выполнение независимых операций
+1. **Batch Operations**: Group multiple operations
+2. **Lazy Loading**: Load documentation on demand
+3. **Parallel Execution**: Execute independent operations in parallel
 
 ### Resource Management
 ```typescript
@@ -1670,14 +1670,14 @@ class ResourceManager {
 ## Security Considerations
 
 ### Input Validation
-- Валидация всех путей на path traversal
-- Санитизация параметров скриптов
-- Проверка размеров файлов
+- Validate all paths for path traversal
+- Sanitize script parameters
+- Check file sizes
 
 ### Sandboxing
-- Выполнение Godot в headless режиме
-- Ограничение доступа к файловой системе
-- Таймауты для операций
+- Execute Godot in headless mode
+- Restrict file system access
+- Operation timeouts
 
 ### Code Injection Prevention
 ```typescript
@@ -1739,11 +1739,11 @@ class SecurityValidator {
 ```
 
 ### Environment Variables
-- `GODOT_PATH`: Путь к Godot 4.5+ executable
-- `GODOT_VERSION`: Версия Godot (минимум 4.5.0)
-- `MCP_CACHE_DIR`: Директория для кэша
-- `MCP_DEBUG`: Режим отладки
-- `GODOT_DOCS_PATH`: Путь к локальной документации Godot 4.5+
+- `GODOT_PATH`: Path to Godot 4.5+ executable
+- `GODOT_VERSION`: Godot version (minimum 4.5.0)
+- `MCP_CACHE_DIR`: Cache directory
+- `MCP_DEBUG`: Debug mode
+- `GODOT_DOCS_PATH`: Path to local Godot 4.5+ documentation
 
 ### Version Validation
 ```typescript
@@ -1779,9 +1779,9 @@ class VersionValidator {
 ### Key Differences from Earlier Versions
 
 #### 1. UID System (Stabilized in 4.5+)
-- Все ресурсы имеют уникальные идентификаторы
-- Автоматическое обновление ссылок при перемещении файлов
-- Поддержка в MCP через операции `get_uid` и `update_project_uids`
+- All resources have unique identifiers
+- Automatic reference updates when moving files
+- MCP support via `get_uid` and `update_project_uids` operations
 
 #### 2. Modern GDScript 2.0
 ```gdscript
@@ -1799,14 +1799,14 @@ var items := [1, 2, 3]  # Array[int]
 ```
 
 #### 3. Enhanced Physics
-- `PhysicsMaterial` с новым свойством `absorbent`
-- Улучшенная система collision layers
-- Новые режимы движения для `CharacterBody`
+- `PhysicsMaterial` with new `absorbent` property
+- Improved collision layers system
+- New motion modes for `CharacterBody`
 
 #### 4. Compositor System (New in 4.5+)
-- Программируемый pipeline рендеринга
-- Кастомные пост-эффекты
-- Лучшая производительность
+- Programmable rendering pipeline
+- Custom post-effects
+- Better performance
 
 #### 5. Improved 3D Rendering
 - SDFGI (Signed Distance Field Global Illumination)
@@ -1898,25 +1898,25 @@ const docs: Godot45Documentation = {
 ## Migration Path
 
 ### Phase 1: Core Extensions with Godot 4.5+ Support (Weeks 1-2)
-- Расширение scene operations с поддержкой UID
-- Добавление script operations с GDScript 2.0
-- Базовая документация для Godot 4.5+
-- Version validation (минимум 4.5.0)
+- Extend scene operations with UID support
+- Add script operations with GDScript 2.0
+- Basic documentation for Godot 4.5+
+- Version validation (minimum 4.5.0)
 
 ### Phase 2: Advanced Features (Weeks 3-4)
-- Physics module с новым PhysicsMaterial API
-- UI module с современными Control узлами
-- Animation module с улучшенным AnimationTree
-- 3D module с compositor support
+- Physics module with new PhysicsMaterial API
+- UI module with modern Control nodes
+- Animation module with improved AnimationTree
+- 3D module with compositor support
 
 ### Phase 3: Polish and Integration (Weeks 5-6)
-- Documentation integration для Godot 4.5+
-- Debug capabilities с улучшенным error reporting
+- Documentation integration for Godot 4.5+
+- Debug capabilities with improved error reporting
 - Performance optimization
-- Comprehensive testing на Godot 4.5+
+- Comprehensive testing on Godot 4.5+
 
 ### Version Requirements
 - **Minimum Version**: Godot 4.5.0
 - **Recommended Version**: Godot 4.5.x (latest stable)
-- **No Backward Compatibility**: Не поддерживаем Godot 4.4 и ниже для упрощения кодовой базы
-- **Future Proof**: Архитектура готова к Godot 4.6+ и 5.0
+- **No Backward Compatibility**: No support for Godot 4.4 and below to simplify codebase
+- **Future Proof**: Architecture ready for Godot 4.6+ and 5.0

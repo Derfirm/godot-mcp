@@ -2,173 +2,173 @@
 
 ## Introduction
 
-Этот документ описывает требования для улучшения Godot MCP сервера до полноценного помощника для создания игр. Цель - обеспечить AI-ассистентам полный доступ к функциональности Godot Engine в соответствии с официальной документацией, чтобы помочь разработчикам создавать игры более эффективно.
+This document describes the requirements for enhancing the Godot MCP server into a full-featured game development assistant. The goal is to provide AI assistants with complete access to Godot Engine functionality according to official documentation, helping developers create games more efficiently.
 
 ## Requirements
 
-### Requirement 1: Расширенное управление сценами
+### Requirement 1: Advanced Scene Management
 
-**User Story:** Как разработчик игр, я хочу иметь полный контроль над сценами через AI-ассистента, чтобы быстро создавать и модифицировать игровые объекты.
-
-#### Acceptance Criteria
-
-1. WHEN пользователь запрашивает создание сцены THEN система SHALL создать сцену с указанным типом корневого узла
-2. WHEN пользователь запрашивает добавление узла THEN система SHALL добавить узел с указанными свойствами и скриптами
-3. WHEN пользователь запрашивает удаление узла THEN система SHALL удалить узел из сцены
-4. WHEN пользователь запрашивает модификацию узла THEN система SHALL изменить свойства узла согласно документации Godot
-5. WHEN пользователь запрашивает дублирование узла THEN система SHALL создать копию узла со всеми дочерними элементами
-
-### Requirement 2: Управление скриптами GDScript
-
-**User Story:** Как разработчик игр, я хочу создавать и редактировать GDScript через AI-ассистента, чтобы быстро реализовывать игровую логику.
+**User Story:** As a game developer, I want to have full control over scenes through an AI assistant, so that I can quickly create and modify game objects.
 
 #### Acceptance Criteria
 
-1. WHEN пользователь запрашивает создание скрипта THEN система SHALL создать GDScript файл с базовой структурой
-2. WHEN пользователь запрашивает прикрепление скрипта к узлу THEN система SHALL прикрепить скрипт к указанному узлу
-3. WHEN пользователь запрашивает валидацию скрипта THEN система SHALL проверить синтаксис через Godot
-4. WHEN пользователь запрашивает список методов узла THEN система SHALL вернуть доступные методы согласно API Godot
-5. WHEN скрипт содержит ошибки THEN система SHALL вернуть детальное описание ошибок с номерами строк
+1. WHEN user requests scene creation THEN system SHALL create a scene with the specified root node type
+2. WHEN user requests node addition THEN system SHALL add a node with specified properties and scripts
+3. WHEN user requests node removal THEN system SHALL remove the node from the scene
+4. WHEN user requests node modification THEN system SHALL change node properties according to Godot documentation
+5. WHEN user requests node duplication THEN system SHALL create a copy of the node with all child elements
 
-### Requirement 3: Работа с ресурсами и ассетами
+### Requirement 2: GDScript Management
 
-**User Story:** Как разработчик игр, я хочу управлять игровыми ресурсами через AI-ассистента, чтобы организовать проект эффективно.
-
-#### Acceptance Criteria
-
-1. WHEN пользователь запрашивает импорт ассета THEN система SHALL импортировать файл с правильными настройками
-2. WHEN пользователь запрашивает создание ресурса THEN система SHALL создать ресурс указанного типа (Material, Shader, etc.)
-3. WHEN пользователь запрашивает список ассетов THEN система SHALL вернуть структурированный список всех ресурсов проекта
-4. WHEN пользователь запрашивает настройки импорта THEN система SHALL показать и позволить изменить параметры импорта
-5. IF ассет отсутствует THEN система SHALL вернуть понятное сообщение об ошибке
-
-### Requirement 4: Система сигналов и событий
-
-**User Story:** Как разработчик игр, я хочу работать с системой сигналов Godot через AI-ассистента, чтобы создавать взаимодействия между объектами.
+**User Story:** As a game developer, I want to create and edit GDScript through an AI assistant, so that I can quickly implement game logic.
 
 #### Acceptance Criteria
 
-1. WHEN пользователь запрашивает создание сигнала THEN система SHALL добавить определение сигнала в скрипт
-2. WHEN пользователь запрашивает подключение сигнала THEN система SHALL создать соединение между узлами
-3. WHEN пользователь запрашивает список сигналов узла THEN система SHALL вернуть все доступные сигналы
-4. WHEN пользователь запрашивает отключение сигнала THEN система SHALL удалить соединение
-5. WHEN сигнал подключается THEN система SHALL валидировать сигнатуру метода-обработчика
+1. WHEN user requests script creation THEN system SHALL create a GDScript file with basic structure
+2. WHEN user requests script attachment to node THEN system SHALL attach the script to the specified node
+3. WHEN user requests script validation THEN system SHALL check syntax through Godot
+4. WHEN user requests node methods list THEN system SHALL return available methods according to Godot API
+5. WHEN script contains errors THEN system SHALL return detailed error description with line numbers
 
-### Requirement 5: Отладка и тестирование
+### Requirement 3: Resource and Asset Management
 
-**User Story:** Как разработчик игр, я хочу отлаживать игру через AI-ассистента, чтобы быстро находить и исправлять ошибки.
-
-#### Acceptance Criteria
-
-1. WHEN пользователь запускает проект в режиме отладки THEN система SHALL захватывать все сообщения консоли
-2. WHEN происходит ошибка THEN система SHALL вернуть стек вызовов и контекст ошибки
-3. WHEN пользователь запрашивает точки останова THEN система SHALL установить breakpoints в указанных местах
-4. WHEN пользователь запрашивает значения переменных THEN система SHALL вернуть текущее состояние переменных
-5. WHEN пользователь запрашивает профилирование THEN система SHALL собрать данные о производительности
-6. WHEN пользователь запускает конкретную сцену THEN система SHALL запустить её в debug-режиме через CLI Godot
-7. WHEN пользователь переключает режим отрисовки THEN система SHALL изменить Viewport.debug_draw для диагностики
-8. WHEN пользователь запрашивает дамп дерева сцен THEN система SHALL вернуть структуру Remote Scene Tree во время рантайма
-9. WHEN пользователь запрашивает скриншот THEN система SHALL захватить текущий кадр и сохранить его
-10. WHEN пользователь запрашивает запись видео THEN система SHALL использовать Movie Maker для оффлайн-рендера
-11. WHEN пользователь запрашивает проверку ассетов THEN система SHALL вернуть список отсутствующих текстур/материалов/скриптов
-
-### Requirement 6: Работа с физикой
-
-**User Story:** Как разработчик игр, я хочу настраивать физику через AI-ассистента, чтобы создавать реалистичные взаимодействия.
+**User Story:** As a game developer, I want to manage game resources through an AI assistant, so that I can organize the project efficiently.
 
 #### Acceptance Criteria
 
-1. WHEN пользователь добавляет физическое тело THEN система SHALL создать узел с правильными collision shapes
-2. WHEN пользователь настраивает физические свойства THEN система SHALL применить параметры согласно документации
-3. WHEN пользователь запрашивает физические слои THEN система SHALL показать и настроить collision layers/masks
-4. WHEN пользователь создает область THEN система SHALL настроить Area2D/Area3D с сигналами
-5. IF физические параметры некорректны THEN система SHALL предложить правильные значения
+1. WHEN user requests asset import THEN system SHALL import the file with correct settings
+2. WHEN user requests resource creation THEN system SHALL create a resource of specified type (Material, Shader, etc.)
+3. WHEN user requests asset list THEN system SHALL return a structured list of all project resources
+4. WHEN user requests import settings THEN system SHALL show and allow modification of import parameters
+5. IF asset is missing THEN system SHALL return a clear error message
 
-### Requirement 7: UI и Control узлы
+### Requirement 4: Signal and Event System
 
-**User Story:** Как разработчик игр, я хочу создавать пользовательский интерфейс через AI-ассистента, чтобы быстро прототипировать UI.
-
-#### Acceptance Criteria
-
-1. WHEN пользователь создает UI элемент THEN система SHALL создать Control узел с правильными anchors
-2. WHEN пользователь настраивает тему THEN система SHALL применить Theme ресурс к узлам
-3. WHEN пользователь создает меню THEN система SHALL создать структуру с кнопками и навигацией
-4. WHEN пользователь запрашивает layout THEN система SHALL настроить Container узлы правильно
-5. WHEN пользователь добавляет локализацию THEN система SHALL интегрировать TranslationServer
-
-### Requirement 8: Анимация и визуальные эффекты
-
-**User Story:** Как разработчик игр, я хочу создавать анимации через AI-ассистента, чтобы оживить игровые объекты.
+**User Story:** As a game developer, I want to work with Godot's signal system through an AI assistant, so that I can create interactions between objects.
 
 #### Acceptance Criteria
 
-1. WHEN пользователь создает AnimationPlayer THEN система SHALL создать узел с базовыми анимациями
-2. WHEN пользователь добавляет ключевые кадры THEN система SHALL создать треки анимации
-3. WHEN пользователь создает AnimationTree THEN система SHALL настроить state machine для анимаций
-4. WHEN пользователь добавляет частицы THEN система SHALL создать GPUParticles2D/3D с настройками
-5. WHEN пользователь запрашивает shader THEN система SHALL создать или модифицировать shader код
+1. WHEN user requests signal creation THEN system SHALL add signal definition to script
+2. WHEN user requests signal connection THEN system SHALL create connection between nodes
+3. WHEN user requests node signals list THEN system SHALL return all available signals
+4. WHEN user requests signal disconnection THEN system SHALL remove the connection
+5. WHEN signal is connected THEN system SHALL validate handler method signature
 
-### Requirement 9: Аудио система
+### Requirement 5: Debugging and Testing
 
-**User Story:** Как разработчик игр, я хочу управлять звуком через AI-ассистента, чтобы добавить аудио в игру.
-
-#### Acceptance Criteria
-
-1. WHEN пользователь добавляет звук THEN система SHALL создать AudioStreamPlayer узел с правильным stream
-2. WHEN пользователь настраивает аудио шину THEN система SHALL конфигурировать AudioBusLayout
-3. WHEN пользователь добавляет музыку THEN система SHALL настроить фоновую музыку с loop
-4. WHEN пользователь добавляет звуковые эффекты THEN система SHALL создать систему для SFX
-5. WHEN пользователь запрашивает 3D звук THEN система SHALL настроить AudioStreamPlayer3D с правильными параметрами
-
-### Requirement 10: Интеграция с документацией Godot
-
-**User Story:** Как разработчик игр, я хочу получать контекстную помощь из официальной документации, чтобы использовать Godot правильно.
+**User Story:** As a game developer, I want to debug the game through an AI assistant, so that I can quickly find and fix errors.
 
 #### Acceptance Criteria
 
-1. WHEN пользователь спрашивает о классе THEN система SHALL предоставить информацию из официальной документации
-2. WHEN пользователь спрашивает о методе THEN система SHALL показать сигнатуру и примеры использования
-3. WHEN пользователь запрашивает best practices THEN система SHALL предложить рекомендации из документации
-4. WHEN пользователь получает ошибку THEN система SHALL предложить решения из документации
-5. WHEN пользователь работает с новой версией Godot THEN система SHALL учитывать изменения в API
+1. WHEN user runs project in debug mode THEN system SHALL capture all console messages
+2. WHEN error occurs THEN system SHALL return call stack and error context
+3. WHEN user requests breakpoints THEN system SHALL set breakpoints at specified locations
+4. WHEN user requests variable values THEN system SHALL return current variable state
+5. WHEN user requests profiling THEN system SHALL collect performance data
+6. WHEN user runs specific scene THEN system SHALL launch it in debug mode via Godot CLI
+7. WHEN user toggles rendering mode THEN system SHALL change Viewport.debug_draw for diagnostics
+8. WHEN user requests scene tree dump THEN system SHALL return Remote Scene Tree structure during runtime
+9. WHEN user requests screenshot THEN system SHALL capture current frame and save it
+10. WHEN user requests video recording THEN system SHALL use Movie Maker for offline rendering
+11. WHEN user requests asset check THEN system SHALL return list of missing textures/materials/scripts
 
-### Requirement 11: Управление проектом
+### Requirement 6: Physics Management
 
-**User Story:** Как разработчик игр, я хочу управлять настройками проекта через AI-ассистента, чтобы конфигурировать игру правильно.
-
-#### Acceptance Criteria
-
-1. WHEN пользователь изменяет настройки проекта THEN система SHALL обновить project.godot файл
-2. WHEN пользователь настраивает input map THEN система SHALL добавить действия и привязки клавиш
-3. WHEN пользователь настраивает autoload THEN система SHALL зарегистрировать синглтоны
-4. WHEN пользователь настраивает экспорт THEN система SHALL создать export presets
-5. WHEN пользователь запрашивает плагины THEN система SHALL показать и управлять установленными плагинами
-
-### Requirement 12: Работа с 3D
-
-**User Story:** Как разработчик 3D игр, я хочу работать с 3D объектами через AI-ассистента, чтобы создавать 3D сцены.
+**User Story:** As a game developer, I want to configure physics through an AI assistant, so that I can create realistic interactions.
 
 #### Acceptance Criteria
 
-1. WHEN пользователь создает 3D сцену THEN система SHALL создать Node3D структуру с камерой и освещением
-2. WHEN пользователь добавляет 3D модель THEN система SHALL импортировать и настроить MeshInstance3D
-3. WHEN пользователь настраивает материалы THEN система SHALL создать StandardMaterial3D с правильными параметрами
-4. WHEN пользователь добавляет окружение THEN система SHALL настроить WorldEnvironment и Sky
-5. WHEN пользователь работает с CSG THEN система SHALL создать CSG узлы для level design
+1. WHEN user adds physics body THEN system SHALL create node with correct collision shapes
+2. WHEN user configures physics properties THEN system SHALL apply parameters according to documentation
+3. WHEN user requests physics layers THEN system SHALL show and configure collision layers/masks
+4. WHEN user creates area THEN system SHALL configure Area2D/Area3D with signals
+5. IF physics parameters are incorrect THEN system SHALL suggest correct values
 
-### Requirement 13: Расширенная диагностика и визуализация
+### Requirement 7: UI and Control Nodes
 
-**User Story:** Как разработчик игр, я хочу иметь расширенные инструменты диагностики через AI-ассистента, чтобы быстро находить проблемы и визуализировать состояние игры.
+**User Story:** As a game developer, I want to create user interfaces through an AI assistant, so that I can quickly prototype UI.
 
 #### Acceptance Criteria
 
-1. WHEN пользователь запускает сцену с параметром debug THEN система SHALL запустить Godot с флагом -d и указанной сценой
-2. WHEN пользователь переключает режим отрисовки THEN система SHALL изменить debug_draw на wireframe/overdraw/normal/lighting
-3. WHEN пользователь запрашивает дамп дерева сцен THEN система SHALL вернуть структуру всех инстанциированных узлов с их свойствами
-4. IF пользователь указывает фильтр для дампа THEN система SHALL вернуть только узлы, соответствующие фильтру
-5. WHEN пользователь запрашивает скриншот THEN система SHALL захватить текущий кадр и сохранить в указанный путь
-6. WHEN пользователь запрашивает запись видео THEN система SHALL настроить MovieWriter с указанными параметрами (fps, качество, формат)
-7. WHEN пользователь запрашивает список отсутствующих ассетов THEN система SHALL проанализировать логи и вернуть отчёт о missing resources
-8. IF отсутствующие ассеты найдены THEN система SHALL предоставить пути к файлам и типы ресурсов
-9. WHEN пользователь запускает сцену в headless режиме THEN система SHALL поддерживать все диагностические операции без GUI
-10. WHEN происходит ошибка во время диагностики THEN система SHALL вернуть детальное описание с контекстом
+1. WHEN user creates UI element THEN system SHALL create Control node with correct anchors
+2. WHEN user configures theme THEN system SHALL apply Theme resource to nodes
+3. WHEN user creates menu THEN system SHALL create structure with buttons and navigation
+4. WHEN user requests layout THEN system SHALL configure Container nodes correctly
+5. WHEN user adds localization THEN system SHALL integrate TranslationServer
+
+### Requirement 8: Animation and Visual Effects
+
+**User Story:** As a game developer, I want to create animations through an AI assistant, so that I can bring game objects to life.
+
+#### Acceptance Criteria
+
+1. WHEN user creates AnimationPlayer THEN system SHALL create node with basic animations
+2. WHEN user adds keyframes THEN system SHALL create animation tracks
+3. WHEN user creates AnimationTree THEN system SHALL configure state machine for animations
+4. WHEN user adds particles THEN system SHALL create GPUParticles2D/3D with settings
+5. WHEN user requests shader THEN system SHALL create or modify shader code
+
+### Requirement 9: Audio System
+
+**User Story:** As a game developer, I want to manage sound through an AI assistant, so that I can add audio to the game.
+
+#### Acceptance Criteria
+
+1. WHEN user adds sound THEN system SHALL create AudioStreamPlayer node with correct stream
+2. WHEN user configures audio bus THEN system SHALL configure AudioBusLayout
+3. WHEN user adds music THEN system SHALL configure background music with loop
+4. WHEN user adds sound effects THEN system SHALL create system for SFX
+5. WHEN user requests 3D sound THEN system SHALL configure AudioStreamPlayer3D with correct parameters
+
+### Requirement 10: Godot Documentation Integration
+
+**User Story:** As a game developer, I want to receive contextual help from official documentation, so that I can use Godot correctly.
+
+#### Acceptance Criteria
+
+1. WHEN user asks about class THEN system SHALL provide information from official documentation
+2. WHEN user asks about method THEN system SHALL show signature and usage examples
+3. WHEN user requests best practices THEN system SHALL suggest recommendations from documentation
+4. WHEN user gets error THEN system SHALL suggest solutions from documentation
+5. WHEN user works with new Godot version THEN system SHALL account for API changes
+
+### Requirement 11: Project Management
+
+**User Story:** As a game developer, I want to manage project settings through an AI assistant, so that I can configure the game correctly.
+
+#### Acceptance Criteria
+
+1. WHEN user changes project settings THEN system SHALL update project.godot file
+2. WHEN user configures input map THEN system SHALL add actions and key bindings
+3. WHEN user configures autoload THEN system SHALL register singletons
+4. WHEN user configures export THEN system SHALL create export presets
+5. WHEN user requests plugins THEN system SHALL show and manage installed plugins
+
+### Requirement 12: 3D Workflow
+
+**User Story:** As a 3D game developer, I want to work with 3D objects through an AI assistant, so that I can create 3D scenes.
+
+#### Acceptance Criteria
+
+1. WHEN user creates 3D scene THEN system SHALL create Node3D structure with camera and lighting
+2. WHEN user adds 3D model THEN system SHALL import and configure MeshInstance3D
+3. WHEN user configures materials THEN system SHALL create StandardMaterial3D with correct parameters
+4. WHEN user adds environment THEN system SHALL configure WorldEnvironment and Sky
+5. WHEN user works with CSG THEN system SHALL create CSG nodes for level design
+
+### Requirement 13: Advanced Diagnostics and Visualization
+
+**User Story:** As a game developer, I want to have advanced diagnostic tools through an AI assistant, so that I can quickly find problems and visualize game state.
+
+#### Acceptance Criteria
+
+1. WHEN user runs scene with debug parameter THEN system SHALL launch Godot with -d flag and specified scene
+2. WHEN user toggles rendering mode THEN system SHALL change debug_draw to wireframe/overdraw/normal/lighting
+3. WHEN user requests scene tree dump THEN system SHALL return structure of all instantiated nodes with their properties
+4. IF user specifies filter for dump THEN system SHALL return only nodes matching the filter
+5. WHEN user requests screenshot THEN system SHALL capture current frame and save to specified path
+6. WHEN user requests video recording THEN system SHALL configure MovieWriter with specified parameters (fps, quality, format)
+7. WHEN user requests list of missing assets THEN system SHALL analyze logs and return report on missing resources
+8. IF missing assets are found THEN system SHALL provide file paths and resource types
+9. WHEN user runs scene in headless mode THEN system SHALL support all diagnostic operations without GUI
+10. WHEN error occurs during diagnostics THEN system SHALL return detailed description with context
