@@ -1,65 +1,16 @@
-
 # Godot MCP
-
-[![Github-sponsors](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#EA4AAA)](https://github.com/sponsors/Coding-Solo)
-
-[![](https://badge.mcpx.dev?type=server 'MCP Server')](https://modelcontextprotocol.io/introduction)
-[![Made with Godot](https://img.shields.io/badge/Made%20with-Godot-478CBF?style=flat&logo=godot%20engine&logoColor=white)](https://godotengine.org)
-[![](https://img.shields.io/badge/Node.js-339933?style=flat&logo=nodedotjs&logoColor=white 'Node.js')](https://nodejs.org/en/download/)
-[![](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white 'TypeScript')](https://www.typescriptlang.org/)
-
-[![](https://img.shields.io/github/last-commit/Coding-Solo/godot-mcp 'Last Commit')](https://github.com/Coding-Solo/godot-mcp/commits/main)
-[![](https://img.shields.io/github/stars/Coding-Solo/godot-mcp 'Stars')](https://github.com/Coding-Solo/godot-mcp/stargazers)
-[![](https://img.shields.io/github/forks/Coding-Solo/godot-mcp 'Forks')](https://github.com/Coding-Solo/godot-mcp/network/members)
-[![](https://img.shields.io/badge/License-MIT-red.svg 'MIT License')](https://opensource.org/licenses/MIT)
-
-```text
-                           (((((((             (((((((                          
-                        (((((((((((           (((((((((((                      
-                        (((((((((((((       (((((((((((((                       
-                        (((((((((((((((((((((((((((((((((                       
-                        (((((((((((((((((((((((((((((((((                       
-         (((((      (((((((((((((((((((((((((((((((((((((((((      (((((        
-       (((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((      
-     ((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((    
-    ((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((    
-      (((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((     
-        (((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((       
-         (((((((((((@@@@@@@(((((((((((((((((((((((((((@@@@@@@(((((((((((        
-         (((((((((@@@@,,,,,@@@(((((((((((((((((((((@@@,,,,,@@@@(((((((((        
-         ((((((((@@@,,,,,,,,,@@(((((((@@@@@(((((((@@,,,,,,,,,@@@((((((((        
-         ((((((((@@@,,,,,,,,,@@(((((((@@@@@(((((((@@,,,,,,,,,@@@((((((((        
-         (((((((((@@@,,,,,,,@@((((((((@@@@@((((((((@@,,,,,,,@@@(((((((((        
-         ((((((((((((@@@@@@(((((((((((@@@@@(((((((((((@@@@@@((((((((((((        
-         (((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((        
-         (((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((        
-         @@@@@@@@@@@@@((((((((((((@@@@@@@@@@@@@((((((((((((@@@@@@@@@@@@@        
-         ((((((((( @@@(((((((((((@@(((((((((((@@(((((((((((@@@ (((((((((        
-         (((((((((( @@((((((((((@@@(((((((((((@@@((((((((((@@ ((((((((((        
-          (((((((((((@@@@@@@@@@@@@@(((((((((((@@@@@@@@@@@@@@(((((((((((         
-           (((((((((((((((((((((((((((((((((((((((((((((((((((((((((((          
-              (((((((((((((((((((((((((((((((((((((((((((((((((((((             
-                 (((((((((((((((((((((((((((((((((((((((((((((((                
-                        (((((((((((((((((((((((((((((((((                       
-                                                                                
-
-                          /$$      /$$  /$$$$$$  /$$$$$$$ 
-                         | $$$    /$$$ /$$__  $$| $$__  $$
-                         | $$$$  /$$$$| $$  \__/| $$  \ $$
-                         | $$ $$/$$ $$| $$      | $$$$$$$/
-                         | $$  $$$| $$| $$      | $$____/ 
-                         | $$\  $ | $$| $$    $$| $$      
-                         | $$ \/  | $$|  $$$$$$/| $$      
-                         |__/     |__/ \______/ |__/       
-```
 
 A Model Context Protocol (MCP) server for interacting with the Godot game engine.
 
 ## Introduction
 
-Godot MCP enables AI assistants to launch the Godot editor, run projects, capture debug output, and control project execution - all through a standardized interface.
+Godot MCP enables AI assistants to launch the Godot editor, run projects, capture debug output, and control project execution through a standardized interface.
 
-This direct feedback loop helps AI assistants like Claude understand what works and what doesn't in real Godot projects, leading to better code generation and debugging assistance.
+This direct feedback loop helps AI assistants understand what works and what doesn't in Godot projects, leading to better code generation and debugging assistance.
+
+**Current Version:** 0.1.0  
+**Godot Version Required:** 4.5.0 or later  
+**Status:** Active Development
 
 ## Features
 
@@ -144,27 +95,28 @@ This direct feedback loop helps AI assistants like Claude understand what works 
 - **[Godot Engine 4.5.0 or later](https://godotengine.org/download)** installed on your system
   - The server validates your Godot version on startup
   - Minimum version: 4.5.0
-  - Recommended: Latest stable version
-- Node.js and npm
+  - Recommended: Latest stable version (4.5.x)
+- **Node.js 18+** and npm
 - An AI assistant that supports MCP (Cline, Cursor, etc.)
 
 ### Version Compatibility
 
 This MCP server requires **Godot 4.5.0 or later** to ensure compatibility with modern Godot features:
 
-- **UID System**: Unique identifiers for resources (4.4+)
+- **UID System**: Unique identifiers for resources (4.4+, stable in 4.5+)
 - **Compositor Effects**: Advanced rendering pipeline (4.5+)
-- **Enhanced Physics**: Improved physics material system (4.5+)
-- **Improved GDScript**: Better parser and type checking (4.5+)
+- **Enhanced Physics**: Improved physics material system with absorbent property (4.5+)
+- **Improved GDScript**: Better parser with detailed error reporting (4.5+)
 - **Modern Node Types**: Latest node types and APIs (4.5+)
+- **GPUParticles**: Enhanced particle system (4.5+)
 
-The server will automatically validate your Godot version when executing operations and provide clear error messages if your version is incompatible.
+The server automatically validates your Godot version on startup and provides clear error messages if your version is incompatible.
 
 ## Installation and Configuration
 
 ### Step 1: Install and Build
 
-First, clone the repository and build the MCP server:
+Clone the repository and build the MCP server:
 
 ```bash
 git clone https://github.com/Coding-Solo/godot-mcp.git
@@ -173,11 +125,15 @@ npm install
 npm run build
 ```
 
+The build process compiles TypeScript and bundles the GDScript operations file.
+
 ### Step 2: Configure with Your AI Assistant
 
 #### Option A: Configure with Cline
 
-Add to your Cline MCP settings file (`~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`):
+Add to your Cline MCP settings file:
+- **Mac/Linux**: `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
+- **Windows**: `%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json`
 
 ```json
 {
@@ -243,10 +199,16 @@ Create a file at `.cursor/mcp.json` in your project directory with the following
 
 ### Step 3: Optional Environment Variables
 
-You can customize the server behavior with these environment variables:
+You can customize the server behavior using environment variables:
 
 - `GODOT_PATH`: Path to the Godot executable (overrides automatic detection)
-- `DEBUG`: Set to "true" to enable detailed server-side debug logging
+- `DEBUG`: Set to "true" to enable detailed server-side logging
+
+Example:
+```bash
+export GODOT_PATH="/path/to/godot"
+export DEBUG="true"
+```
 
 ## Checking Your Godot Version
 
@@ -261,6 +223,13 @@ The tool will display:
 - Your installed Godot version
 - Compatibility status with the MCP server
 - List of supported features based on your version
+
+You can also check manually:
+```bash
+godot --version
+# or
+/path/to/Godot.app/Contents/MacOS/Godot --version
+```
 
 ## Example Prompts
 
@@ -344,44 +313,103 @@ Once configured, your AI assistant will automatically run the MCP server when ne
 
 ### Architecture
 
-The Godot MCP server uses a bundled GDScript approach for complex operations:
+The Godot MCP server uses a bundled GDScript approach for efficient operation execution:
 
-1. **Direct Commands**: Simple operations like launching the editor or getting project info use Godot's built-in CLI commands directly.
-2. **Bundled Operations Script**: Complex operations like creating scenes or adding nodes use a single, comprehensive GDScript file (`godot_operations.gd`) that handles all operations.
+**1. TypeScript Server Layer**
+- Handles MCP protocol communication
+- Manages Godot process lifecycle
+- Validates parameters and versions
+- Caches documentation and results
 
-This architecture provides several benefits:
+**2. Bundled GDScript Operations**
+- Single comprehensive script (`godot_operations.gd`) for all operations
+- Accepts operation type and parameters as JSON
+- Runs in headless mode for fast execution
+- Returns structured JSON results
 
-- **No Temporary Files**: Eliminates the need for temporary script files, keeping your system clean
-- **Simplified Codebase**: Centralizes all Godot operations in one (somewhat) organized file
-- **Better Maintainability**: Makes it easier to add new operations or modify existing ones
-- **Improved Error Handling**: Provides consistent error reporting across all operations
-- **Reduced Overhead**: Minimizes file I/O operations for better performance
+**3. Documentation Module**
+- Fetches class info using Godot's `--doctool`
+- Caches documentation locally for performance
+- Provides search and best practices
 
-The bundled script accepts operation type and parameters as JSON, allowing for flexible and dynamic operation execution without generating temporary files for each operation.
+### Key Benefits
+
+- **No Temporary Files**: All operations use a single bundled script
+- **Fast Execution**: Headless mode with minimal overhead
+- **Type Safety**: Parameter validation and normalization
+- **Version Aware**: Automatic feature detection based on Godot version
+- **Comprehensive Caching**: Documentation and results cached for speed
+
+### Supported Operations
+
+The server supports 50+ operations across multiple categories:
+- Scene Management (create, modify, query nodes)
+- Script Management (create, attach, validate scripts)
+- Resource Management (import, configure assets)
+- Physics System (bodies, collision, materials)
+- UI System (elements, themes, layouts)
+- Animation System (players, keyframes, trees)
+- Signal System (create, connect, disconnect)
+- Debug Tools (run, capture, analyze)
+- Documentation (search, class info, best practices)
+- Project Management (settings, input, autoload)
 
 ## Troubleshooting
 
-- **Godot Not Found**: Set the GODOT_PATH environment variable to your Godot executable
-- **Version Incompatibility**: If you see version errors, upgrade to Godot 4.5.0 or later from [godotengine.org](https://godotengine.org/download)
-- **Connection Issues**: Ensure the server is running and restart your AI assistant
-- **Invalid Project Path**: Ensure the path points to a directory containing a project.godot file
-- **Build Issues**: Make sure all dependencies are installed by running `npm install`
-- **For Cursor Specifically**:
--   Ensure the MCP server shows up and is enabled in Cursor settings (Settings > MCP)
--   MCP tools can only be run using the Agent chat profile (Cursor Pro or Business subscription)
--   Use "Yolo Mode" to automatically run MCP tool requests
+### Common Issues
 
-### Version-Related Issues
+**Godot Not Found**
+- Set the `GODOT_PATH` environment variable to your Godot executable
+- Verify Godot is in your system PATH
+- Check that the path points to the correct Godot 4.5+ executable
 
-If you encounter version-related errors:
+**Version Incompatible**
+- Upgrade to Godot 4.5.0 or later from [godotengine.org](https://godotengine.org/download)
+- Run `godot --version` to verify your installation
+- Use the `get_godot_version` tool to check compatibility
 
-1. Check your Godot version: Run `godot --version` in your terminal
-2. Verify minimum version: Ensure you have Godot 4.5.0 or later
-3. Update Godot: Download the latest version from [godotengine.org](https://godotengine.org/download)
-4. Set GODOT_PATH: If you have multiple Godot versions, set the GODOT_PATH environment variable to point to the correct one
+**Connection Issues**
+- Restart your AI assistant after configuration changes
+- Check that the MCP server path is correct in your configuration
+- Enable DEBUG mode to see detailed logs
+
+**Invalid Project Path**
+- Ensure the path points to a directory containing a `project.godot` file
+- Use absolute paths for better reliability
+- Check file permissions
+
+**Build Issues**
+- Run `npm install` to ensure all dependencies are installed
+- Delete `node_modules` and `build` folders, then rebuild
+- Ensure you have Node.js 18+ installed
+
+**For Cursor Users**
+- Ensure the MCP server is enabled in Settings > Features > MCP
+- MCP tools can only be run using the Agent chat profile (Cursor Pro or Business subscription)
+- Use "Yolo Mode" for automatic tool execution
+- Restart Cursor after configuration changes
+- Check the MCP server logs in Cursor's developer tools
+
+**For Cline Users**
+- Verify the server path in Cline's MCP settings
+- Check that the server is running (look for startup messages)
+- Enable auto-approve for frequently used tools
+
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## Roadmap
+
+- [ ] Audio system operations (AudioStreamPlayer, buses, 3D audio)
+- [ ] 3D scene operations (materials, environment, compositor)
+- [ ] Performance profiling tools
+- [ ] Movie capture functionality
+- [ ] Additional debug visualization modes
+- [ ] Extended documentation integration
+
+See [.kiro/specs/godot-game-assistant/tasks.md](.kiro/specs/godot-game-assistant/tasks.md) for detailed implementation plan.
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/coding-solo-godot-mcp-badge.png)](https://mseep.ai/app/coding-solo-godot-mcp)

@@ -262,6 +262,50 @@
   - Добавить MCP tool handler для profile_performance
   - _Requirements: 5.5_
 
+- [x] 11.4 Реализовать операцию run_scene
+  - Добавить TypeScript интерфейс RunSceneParams и SceneRunResult
+  - Реализовать метод runScene для запуска сцены через CLI с флагом -d
+  - Парсинг вывода консоли и ошибок
+  - Добавить MCP tool handler для run_scene
+  - _Requirements: 5.6, 13.6_
+
+- [x] 11.5 Реализовать операцию toggle_debug_draw
+  - Добавить TypeScript интерфейс ToggleDebugDrawParams
+  - Реализовать GDScript функцию toggle_debug_draw с поддержкой всех Godot 4.5+ режимов
+  - Маппинг строковых значений на Viewport.DEBUG_DRAW_* enum
+  - Добавить MCP tool handler для toggle_debug_draw
+  - _Requirements: 5.7, 13.7_
+
+- [x] 11.6 Реализовать операцию remote_tree_dump
+  - Добавить TypeScript интерфейс RemoteTreeDumpParams и TreeDumpResult
+  - Реализовать GDScript функцию remote_tree_dump с рекурсивным обходом
+  - Поддержка фильтрации по типу, имени, наличию скрипта, глубине
+  - Опциональное включение свойств и сигналов
+  - Добавить MCP tool handler для remote_tree_dump
+  - _Requirements: 5.8, 13.8_
+
+- [x] 11.7 Реализовать операцию capture_screenshot
+  - Добавить TypeScript интерфейс CaptureScreenshotParams
+  - Реализовать GDScript функцию capture_screenshot с использованием Viewport.get_texture()
+  - Поддержка задержки и изменения размера
+  - Добавить MCP tool handler для capture_screenshot
+  - _Requirements: 5.9, 13.9_
+
+- [ ] 11.8 Реализовать операцию capture_movie
+  - Добавить TypeScript интерфейс CaptureMovieParams
+  - Реализовать TypeScript метод captureMovie с использованием --write-movie CLI
+  - Поддержка настроек fps, duration, quality, format
+  - Добавить MCP tool handler для capture_movie
+  - _Requirements: 5.10, 13.10_
+
+- [x] 11.9 Реализовать операцию list_missing_assets
+  - Добавить TypeScript интерфейс ListMissingAssetsParams и MissingAssetsReport
+  - Реализовать GDScript функцию list_missing_assets со сканированием проекта
+  - Парсинг .tscn, .tres, .gd файлов для поиска ссылок на ресурсы
+  - Генерация предложений по исправлению
+  - Добавить MCP tool handler для list_missing_assets
+  - _Requirements: 5.11, 13.11_
+
 - [x] 12. Реализация Project Management Module
 - [x] 12.1 Реализовать операцию update_project_settings
   - Добавить TypeScript интерфейс UpdateSettingsParams

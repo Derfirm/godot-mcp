@@ -68,6 +68,111 @@ interface PerformanceMetrics {
   drawCalls: number;
 }
 
+/**
+ * Run Scene Interfaces
+ */
+interface RunSceneParams {
+  projectPath: string;
+  scenePath: string;
+  debug?: boolean;
+  additionalArgs?: string[];
+}
+
+interface SceneRunResult {
+  success: boolean;
+  output: string[];
+  errors: ErrorInfo[];
+  exitCode: number;
+}
+
+/**
+ * Capture Screenshot Interfaces
+ */
+interface CaptureScreenshotParams {
+  projectPath: string;
+  outputPath: string;
+  scenePath?: string; // If specified, run the scene and capture screenshot
+  delay?: number; // Delay before capture (in seconds)
+  size?: { width: number; height: number };
+}
+
+/**
+ * List Missing Assets Interfaces
+ */
+interface ListMissingAssetsParams {
+  projectPath: string;
+  checkTypes?: ('texture' | 'audio' | 'script' | 'scene' | 'material' | 'mesh')[];
+}
+
+interface MissingAssetsReport {
+  missing: MissingAssetInfo[];
+  totalMissing: number;
+  checkedPaths: string[];
+  timestamp: string;
+}
+
+interface MissingAssetInfo {
+  path: string;
+  type: string;
+  referencedBy: string[];
+  suggestedFixes?: string[];
+}
+
+/**
+ * Remote Tree Dump Interfaces
+ */
+interface RemoteTreeDumpParams {
+  projectPath: string;
+  scenePath?: string; // If specified, run the scene first
+  filter?: {
+    nodeType?: string; // Filter by node type (e.g., "CharacterBody2D")
+    nodeName?: string; // Filter by node name (regex support)
+    hasScript?: boolean; // Only nodes with scripts
+    depth?: number; // Maximum depth of tree
+  };
+  includeProperties?: boolean; // Include node properties
+  includeSignals?: boolean; // Include connected signals
+}
+
+interface TreeDumpResult {
+  nodes: NodeDumpInfo[];
+  totalNodes: number;
+  timestamp: string;
+}
+
+interface NodeDumpInfo {
+  path: string;
+  type: string;
+  name: string;
+  children: string[];
+  properties?: Record<string, any>;
+  signals?: SignalConnection[];
+  script?: string;
+}
+
+interface SignalConnection {
+  name: string;
+  connections: Array<{
+    target: string;
+    method: string;
+  }>;
+}
+
+/**
+ * Toggle Debug Draw Interfaces
+ */
+interface ToggleDebugDrawParams {
+  projectPath: string;
+  mode: 'disabled' | 'unshaded' | 'lighting' | 'overdraw' | 'wireframe' |
+  'normal_buffer' | 'voxel_gi_albedo' | 'voxel_gi_lighting' |
+  'voxel_gi_emission' | 'shadow_atlas' | 'directional_shadow_atlas' |
+  'scene_luminance' | 'ssao' | 'ssil' | 'pssm_splits' | 'decal_atlas' |
+  'sdfgi' | 'sdfgi_probes' | 'gi_buffer' | 'disable_lod' | 'cluster_omni_lights' |
+  'cluster_spot_lights' | 'cluster_decals' | 'cluster_reflection_probes' |
+  'occluders' | 'motion_vectors' | 'internal_buffer'; // Godot 4.5+ debug draw modes
+  viewport?: string; // Path to specific Viewport node
+}
+
 // Check if debug mode is enabled
 const DEBUG_MODE: boolean = process.env.DEBUG === 'true';
 const GODOT_DEBUG_MODE: boolean = true; // Always use GODOT DEBUG MODE
@@ -2426,6 +2531,69 @@ class GodotServer {
           },
         },
         {
+          name: 'capture_screenshot',
+          description: 'Capture a screenshot from a running Godot scene using Viewport.get_texture()',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+              outputPath: {
+                type: 'string',
+                description: 'Path where the screenshot will be saved (relative to project or absolute)',
+              },
+              scenePath: {
+                type: 'string',
+                description: 'Optional: Path to the scene to run and capture (relative to project)',
+              },
+              delay: {
+                type: 'number',
+                description: 'Optional: Delay in seconds before capturing the screenshot (default: 0)',
+              },
+              size: {
+                type: 'object',
+                description: 'Optional: Custom viewport size for the screenshot',
+                properties: {
+                  width: {
+                    type: 'number',
+                    description: 'Width in pixels',
+                  },
+                  height: {
+                    type: 'number',
+                    description: 'Height in pixels',
+                  },
+                },
+                required: ['width', 'height'],
+              },
+            },
+            required: ['projectPath', 'outputPath'],
+          },
+        },
+        {
+          name: 'list_missing_assets',
+          description: 'Scan the project for missing assets (textures, audio, scripts, scenes, materials, meshes) and generate a report with suggested fixes',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+              checkTypes: {
+                type: 'array',
+                description: 'Optional: Types of assets to check for (default: all types)',
+                items: {
+                  type: 'string',
+                  enum: ['texture', 'audio', 'script', 'scene', 'material', 'mesh'],
+                },
+              },
+            },
+            required: ['projectPath'],
+          },
+        },
+        {
           name: 'update_project_settings',
           description: 'Update project settings in project.godot file',
           inputSchema: {
@@ -2565,6 +2733,137 @@ class GodotServer {
             required: ['projectPath', 'action'],
           },
         },
+        {
+          name: 'run_scene',
+          description: 'Run a specific scene in debug mode through Godot CLI with -d flag, capturing console output and errors',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+              scenePath: {
+                type: 'string',
+                description: 'Path to the scene file to run (relative to project, e.g., "scenes/main.tscn")',
+              },
+              debug: {
+                type: 'boolean',
+                description: 'Whether to run in debug mode with -d flag (default: true)',
+                default: true,
+              },
+              additionalArgs: {
+                type: 'array',
+                description: 'Additional CLI arguments to pass to Godot',
+                items: {
+                  type: 'string',
+                },
+              },
+            },
+            required: ['projectPath', 'scenePath'],
+          },
+        },
+        {
+          name: 'remote_tree_dump',
+          description: 'Dump the remote scene tree during runtime with recursive traversal, supporting filtering by type, name, script presence, and depth. Optionally includes node properties and signal connections.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+              scenePath: {
+                type: 'string',
+                description: 'Optional: Path to the scene to run before dumping (relative to project)',
+              },
+              filter: {
+                type: 'object',
+                description: 'Optional: Filters to apply to the tree dump',
+                properties: {
+                  nodeType: {
+                    type: 'string',
+                    description: 'Filter by node type (e.g., "CharacterBody2D", "Sprite2D")',
+                  },
+                  nodeName: {
+                    type: 'string',
+                    description: 'Filter by node name (supports regex patterns)',
+                  },
+                  hasScript: {
+                    type: 'boolean',
+                    description: 'Only include nodes that have scripts attached',
+                  },
+                  depth: {
+                    type: 'number',
+                    description: 'Maximum depth of tree traversal (-1 for unlimited)',
+                  },
+                },
+              },
+              includeProperties: {
+                type: 'boolean',
+                description: 'Include node properties in the dump (default: false)',
+                default: false,
+              },
+              includeSignals: {
+                type: 'boolean',
+                description: 'Include connected signals in the dump (default: false)',
+                default: false,
+              },
+            },
+            required: ['projectPath'],
+          },
+        },
+        {
+          name: 'toggle_debug_draw',
+          description: 'Toggle Viewport debug draw mode for visual diagnostics. Supports all Godot 4.5+ debug draw modes including wireframe, overdraw, lighting, normal buffer, and various GI/shadow visualization modes.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectPath: {
+                type: 'string',
+                description: 'Path to the Godot project directory',
+              },
+              mode: {
+                type: 'string',
+                description: 'Debug draw mode to enable',
+                enum: [
+                  'disabled',
+                  'unshaded',
+                  'lighting',
+                  'overdraw',
+                  'wireframe',
+                  'normal_buffer',
+                  'voxel_gi_albedo',
+                  'voxel_gi_lighting',
+                  'voxel_gi_emission',
+                  'shadow_atlas',
+                  'directional_shadow_atlas',
+                  'scene_luminance',
+                  'ssao',
+                  'ssil',
+                  'pssm_splits',
+                  'decal_atlas',
+                  'sdfgi',
+                  'sdfgi_probes',
+                  'gi_buffer',
+                  'disable_lod',
+                  'cluster_omni_lights',
+                  'cluster_spot_lights',
+                  'cluster_decals',
+                  'cluster_reflection_probes',
+                  'occluders',
+                  'motion_vectors',
+                  'internal_buffer',
+                ],
+              },
+              viewport: {
+                type: 'string',
+                description: 'Optional: Path to specific Viewport node (default: "/root")',
+              },
+            },
+            required: ['projectPath', 'mode'],
+          },
+        },
       ],
     }));
 
@@ -2660,6 +2959,10 @@ class GodotServer {
           return await this.handleRunWithDebug(request.params.arguments);
         case 'get_error_context':
           return await this.handleGetErrorContext(request.params.arguments);
+        case 'capture_screenshot':
+          return await this.handleCaptureScreenshot(request.params.arguments);
+        case 'list_missing_assets':
+          return await this.handleListMissingAssets(request.params.arguments);
         case 'update_project_settings':
           return await this.handleUpdateProjectSettings(request.params.arguments);
         case 'configure_input_map':
@@ -2668,6 +2971,12 @@ class GodotServer {
           return await this.handleSetupAutoload(request.params.arguments);
         case 'manage_plugins':
           return await this.handleManagePlugins(request.params.arguments);
+        case 'run_scene':
+          return await this.handleRunScene(request.params.arguments);
+        case 'remote_tree_dump':
+          return await this.handleRemoteTreeDump(request.params.arguments);
+        case 'toggle_debug_draw':
+          return await this.handleToggleDebugDraw(request.params.arguments);
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
@@ -6031,7 +6340,7 @@ class GodotServer {
 
       // Format the response
       let response = `# ${classInfo.name}\n\n`;
-      
+
       if (classInfo.inherits) {
         response += `**Inherits:** ${classInfo.inherits}\n\n`;
       }
@@ -6402,7 +6711,7 @@ class GodotServer {
       godotProcess.stdout?.on('data', (data: Buffer) => {
         const text = data.toString();
         output.push(text);
-        
+
         // Parse for errors and warnings
         const lines = text.split('\n');
         for (const line of lines) {
@@ -6421,7 +6730,7 @@ class GodotServer {
       godotProcess.stderr?.on('data', (data: Buffer) => {
         const text = data.toString();
         output.push(text);
-        
+
         // Parse for errors
         const lines = text.split('\n');
         for (const line of lines) {
@@ -6456,7 +6765,7 @@ class GodotServer {
         response += `Scene: ${scene}\n`;
       }
       response += `\n## Initial Output\n\n`;
-      
+
       if (output.length > 0) {
         response += '```\n';
         response += output.slice(0, 50).join('');
@@ -6524,17 +6833,17 @@ class GodotServer {
     //   at: <function> (<script>:<line>)
     // or SCRIPT ERROR: <message>
     //   at: <script>:<line>
-    
+
     const errorMatch = line.match(/(?:ERROR|SCRIPT ERROR):\s*(.+)/);
     if (!errorMatch) {
       return null;
     }
 
     const message = errorMatch[1].trim();
-    
+
     // Try to extract script and line info from the message
     const locationMatch = message.match(/(?:at|in)\s+(.+?):(\d+)/);
-    
+
     let script = 'unknown';
     let lineNum = 0;
     let type: 'runtime' | 'script' | 'engine' = 'runtime';
@@ -6713,6 +7022,109 @@ class GodotServer {
         [
           'Ensure the error message is provided',
           'Check if Godot is installed correctly',
+        ]
+      );
+    }
+  }
+
+  /**
+   * Handle the capture_screenshot tool
+   */
+  private async handleCaptureScreenshot(args: any) {
+    // Normalize parameters to camelCase
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath || !args.outputPath) {
+      return this.createErrorResponse(
+        'Missing required parameters',
+        ['Provide projectPath and outputPath']
+      );
+    }
+
+    if (!this.validatePath(args.projectPath) || !this.validatePath(args.outputPath)) {
+      return this.createErrorResponse(
+        'Invalid path',
+        ['Ensure paths do not contain ".." or other suspicious patterns']
+      );
+    }
+
+    try {
+      // Check if the project directory exists and contains a project.godot file
+      const projectFile = join(args.projectPath, 'project.godot');
+      if (!existsSync(projectFile)) {
+        return this.createErrorResponse(
+          `Not a valid Godot project: ${args.projectPath}`,
+          ['Ensure the path points to a directory containing a project.godot file']
+        );
+      }
+
+      this.logDebug(`Capturing screenshot for project: ${args.projectPath}`);
+
+      // Execute the capture_screenshot operation
+      const result = await this.executeOperation('capture_screenshot', args, args.projectPath);
+
+      // Parse the result
+      const lines = result.stdout.split('\n').filter(line => line.trim());
+      const lastLine = lines[lines.length - 1];
+
+      this.logDebug(`Screenshot operation output: ${lastLine}`);
+
+      // Try to parse as JSON
+      try {
+        const jsonResult = JSON.parse(lastLine);
+
+        if (jsonResult.success) {
+          let response = `# Screenshot Captured Successfully\n\n`;
+          response += `**Output Path:** ${jsonResult.output_path}\n`;
+          if (jsonResult.size) {
+            response += `**Size:** ${jsonResult.size.width}x${jsonResult.size.height}\n`;
+          }
+          if (args.scenePath) {
+            response += `**Scene:** ${args.scenePath}\n`;
+          }
+          if (args.delay) {
+            response += `**Delay:** ${args.delay} seconds\n`;
+          }
+          response += '\n';
+          response += `The screenshot has been saved successfully.\n`;
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: response,
+              },
+            ],
+          };
+        } else {
+          return this.createErrorResponse(
+            `Failed to capture screenshot: ${jsonResult.error || 'Unknown error'}`,
+            [
+              'Ensure the output path is writable',
+              'Check if the scene path is valid (if provided)',
+              'Verify the viewport size is valid (if provided)',
+            ]
+          );
+        }
+      } catch (parseError) {
+        // If not JSON, treat as plain text output
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Screenshot operation completed:\n\n${result.stdout}`,
+            },
+          ],
+        };
+      }
+    } catch (error: any) {
+      return this.createErrorResponse(
+        `Failed to capture screenshot: ${error?.message || 'Unknown error'}`,
+        [
+          'Ensure Godot is installed and accessible',
+          'Check if the project path is correct',
+          'Verify the output path is writable',
+          'If capturing from a scene, ensure the scene path is valid',
         ]
       );
     }
@@ -7008,6 +7420,139 @@ class GodotServer {
           'Ensure Godot is installed correctly',
           'Check if the GODOT_PATH environment variable is set correctly',
           'Verify the project path is accessible',
+        ]
+      );
+    }
+  }
+
+  /**
+   * Handle the list_missing_assets tool
+   */
+  private async handleListMissingAssets(args: any) {
+    // Normalize parameters to camelCase
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath) {
+      return this.createErrorResponse(
+        'Missing required parameter',
+        ['Provide projectPath']
+      );
+    }
+
+    if (!this.validatePath(args.projectPath)) {
+      return this.createErrorResponse(
+        'Invalid path',
+        ['Ensure paths do not contain ".." or other suspicious patterns']
+      );
+    }
+
+    try {
+      // Check if the project directory exists and contains a project.godot file
+      const projectFile = join(args.projectPath, 'project.godot');
+      if (!existsSync(projectFile)) {
+        return this.createErrorResponse(
+          `Not a valid Godot project: ${args.projectPath}`,
+          ['Ensure the path points to a directory containing a project.godot file']
+        );
+      }
+
+      this.logDebug(`Scanning for missing assets in project: ${args.projectPath}`);
+
+      // Prepare parameters for the operation
+      const params: any = {};
+
+      // Add optional check types
+      if (args.checkTypes && Array.isArray(args.checkTypes)) {
+        params.checkTypes = args.checkTypes;
+      }
+
+      // Execute the list_missing_assets operation
+      const result = await this.executeOperation('list_missing_assets', params, args.projectPath);
+
+      // Parse the result
+      const lines = result.stdout.split('\n').filter(line => line.trim());
+      const lastLine = lines[lines.length - 1];
+
+      this.logDebug(`Missing assets operation output: ${lastLine}`);
+
+      // Try to parse as JSON
+      try {
+        const jsonResult = JSON.parse(lastLine);
+
+        if (jsonResult.success) {
+          const report: MissingAssetsReport = jsonResult.report;
+
+          let response = `# Missing Assets Report\n\n`;
+          response += `**Timestamp:** ${report.timestamp}\n`;
+          response += `**Total Missing:** ${report.totalMissing}\n`;
+          response += `**Checked Paths:** ${report.checkedPaths.length}\n\n`;
+
+          if (report.totalMissing === 0) {
+            response += `✓ No missing assets found! All resource references are valid.\n`;
+          } else {
+            response += `## Missing Assets (${report.totalMissing})\n\n`;
+
+            for (const asset of report.missing) {
+              response += `### ${asset.path}\n`;
+              response += `**Type:** ${asset.type}\n`;
+              response += `**Referenced By:**\n`;
+              for (const ref of asset.referencedBy) {
+                response += `  - ${ref}\n`;
+              }
+
+              if (asset.suggestedFixes && asset.suggestedFixes.length > 0) {
+                response += `**Suggested Fixes:**\n`;
+                for (const fix of asset.suggestedFixes) {
+                  response += `  - ${fix}\n`;
+                }
+              }
+              response += '\n';
+            }
+          }
+
+          response += `## Checked Paths\n\n`;
+          for (const path of report.checkedPaths.slice(0, 10)) {
+            response += `- ${path}\n`;
+          }
+          if (report.checkedPaths.length > 10) {
+            response += `\n_... and ${report.checkedPaths.length - 10} more paths_\n`;
+          }
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: response,
+              },
+            ],
+          };
+        } else {
+          return this.createErrorResponse(
+            `Failed to scan for missing assets: ${jsonResult.error || 'Unknown error'}`,
+            [
+              'Ensure the project has valid scene and resource files',
+              'Check if you have read permissions for the project directory',
+            ]
+          );
+        }
+      } catch (parseError) {
+        // If not JSON, treat as plain text output
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Missing assets scan completed:\n\n${result.stdout}`,
+            },
+          ],
+        };
+      }
+    } catch (error: any) {
+      return this.createErrorResponse(
+        `Failed to scan for missing assets: ${error?.message || 'Unknown error'}`,
+        [
+          'Ensure Godot is installed and accessible',
+          'Check if the project path is correct',
+          'Verify you have read permissions for the project directory',
         ]
       );
     }
@@ -7338,6 +7883,581 @@ class GodotServer {
           'Ensure Godot is installed correctly',
           'Check if the GODOT_PATH environment variable is set correctly',
           'Verify the project path is accessible',
+        ]
+      );
+    }
+  }
+
+  /**
+   * Handle the run_scene tool
+   */
+  private async handleRunScene(args: any) {
+    // Normalize parameters to camelCase
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath || !args.scenePath) {
+      return this.createErrorResponse(
+        'Missing required parameters',
+        ['Provide projectPath and scenePath']
+      );
+    }
+
+    if (!this.validatePath(args.projectPath) || !this.validatePath(args.scenePath)) {
+      return this.createErrorResponse(
+        'Invalid path',
+        ['Provide valid paths without ".." or other potentially unsafe characters']
+      );
+    }
+
+    try {
+      // Check if the project directory exists and contains a project.godot file
+      const projectFile = join(args.projectPath, 'project.godot');
+      if (!existsSync(projectFile)) {
+        return this.createErrorResponse(
+          `Not a valid Godot project: ${args.projectPath}`,
+          [
+            'Ensure the path points to a directory containing a project.godot file',
+            'Use list_projects to find valid Godot projects',
+          ]
+        );
+      }
+
+      // Check if the scene file exists
+      const fullScenePath = join(args.projectPath, args.scenePath);
+      if (!existsSync(fullScenePath)) {
+        return this.createErrorResponse(
+          `Scene file does not exist: ${args.scenePath}`,
+          [
+            'Ensure the scene path is correct',
+            'Use create_scene to create a new scene first',
+            'Check that the path is relative to the project directory',
+          ]
+        );
+      }
+
+      // Ensure godotPath is set
+      if (!this.godotPath) {
+        await this.detectGodotPath();
+        if (!this.godotPath) {
+          throw new Error('Could not find a valid Godot executable path');
+        }
+      }
+
+      this.logDebug(`Running scene: ${args.scenePath} in project: ${args.projectPath}`);
+
+      // Build the command arguments
+      const cmdArgs: string[] = [
+        '--path',
+        args.projectPath,
+        args.scenePath,
+      ];
+
+      // Add debug flag if requested (default: true)
+      const debug = args.debug !== undefined ? args.debug : true;
+      if (debug) {
+        cmdArgs.push('-d');
+      }
+
+      // Add any additional arguments
+      if (args.additionalArgs && Array.isArray(args.additionalArgs)) {
+        cmdArgs.push(...args.additionalArgs);
+      }
+
+      this.logDebug(`Command: ${this.godotPath} ${cmdArgs.join(' ')}`);
+
+      // Run the scene and capture output
+      return new Promise((resolve) => {
+        const output: string[] = [];
+        const errors: ErrorInfo[] = [];
+        let exitCode = 0;
+
+        const godotProcess = spawn(this.godotPath!, cmdArgs, {
+          cwd: args.projectPath,
+        });
+
+        // Capture stdout
+        godotProcess.stdout.on('data', (data: Buffer) => {
+          const lines = data.toString().split('\n');
+          for (const line of lines) {
+            if (line.trim()) {
+              output.push(line);
+              this.logDebug(`[STDOUT] ${line}`);
+
+              // Try to parse errors from output
+              const errorInfo = this.parseErrorLine(line);
+              if (errorInfo) {
+                errors.push(errorInfo);
+              }
+            }
+          }
+        });
+
+        // Capture stderr
+        godotProcess.stderr.on('data', (data: Buffer) => {
+          const lines = data.toString().split('\n');
+          for (const line of lines) {
+            if (line.trim()) {
+              output.push(`[STDERR] ${line}`);
+              this.logDebug(`[STDERR] ${line}`);
+
+              // Try to parse errors from stderr
+              const errorInfo = this.parseErrorLine(line);
+              if (errorInfo) {
+                errors.push(errorInfo);
+              }
+            }
+          }
+        });
+
+        // Handle process exit
+        godotProcess.on('close', (code: number | null) => {
+          exitCode = code || 0;
+          this.logDebug(`Godot process exited with code: ${exitCode}`);
+
+          const result: SceneRunResult = {
+            success: exitCode === 0 && errors.length === 0,
+            output,
+            errors,
+            exitCode,
+          };
+
+          // Format the response
+          let responseText = `# Scene Run Result\n\n`;
+          responseText += `**Scene:** ${args.scenePath}\n`;
+          responseText += `**Exit Code:** ${exitCode}\n`;
+          responseText += `**Status:** ${result.success ? '✓ Success' : '✗ Failed'}\n\n`;
+
+          if (errors.length > 0) {
+            responseText += `## Errors (${errors.length})\n\n`;
+            for (const error of errors.slice(0, 10)) {
+              responseText += `### ${error.type.toUpperCase()}: ${error.message}\n`;
+              if (error.script !== 'unknown') {
+                responseText += `**Location:** ${error.script}:${error.line}\n`;
+              }
+              if (error.stack.length > 0) {
+                responseText += `**Stack:**\n\`\`\`\n`;
+                for (const frame of error.stack.slice(0, 5)) {
+                  responseText += `  at ${frame.function} (${frame.script}:${frame.line})\n`;
+                }
+                responseText += `\`\`\`\n`;
+              }
+              responseText += '\n';
+            }
+            if (errors.length > 10) {
+              responseText += `_... and ${errors.length - 10} more errors_\n\n`;
+            }
+          }
+
+          if (output.length > 0) {
+            responseText += `## Console Output\n\n\`\`\`\n`;
+            // Show last 50 lines of output
+            const outputLines = output.slice(-50);
+            if (output.length > 50) {
+              responseText += `... (showing last 50 of ${output.length} lines)\n`;
+            }
+            responseText += outputLines.join('\n');
+            responseText += `\n\`\`\`\n\n`;
+          }
+
+          responseText += `## Additional Tools\n\n`;
+          responseText += `- Use \`get_error_context\` to get detailed information about specific errors\n`;
+          responseText += `- Use \`get_class_info\` to learn about Godot classes mentioned in errors\n`;
+          responseText += `- Use \`validate_script\` to check scripts for syntax errors\n`;
+
+          resolve({
+            content: [
+              {
+                type: 'text',
+                text: responseText,
+              },
+            ],
+          });
+        });
+
+        // Handle process errors
+        godotProcess.on('error', (error: Error) => {
+          this.logDebug(`Godot process error: ${error.message}`);
+          resolve(
+            this.createErrorResponse(
+              `Failed to run scene: ${error.message}`,
+              [
+                'Ensure Godot is installed correctly',
+                'Check if the GODOT_PATH environment variable is set correctly',
+                'Verify the scene file is valid',
+              ]
+            )
+          );
+        });
+      });
+    } catch (error: any) {
+      return this.createErrorResponse(
+        `Failed to run scene: ${error?.message || 'Unknown error'}`,
+        [
+          'Ensure Godot is installed correctly',
+          'Check if the GODOT_PATH environment variable is set correctly',
+          'Verify the project path is accessible',
+          'Ensure the scene file exists and is valid',
+        ]
+      );
+    }
+  }
+
+  /**
+   * Handle the remote_tree_dump tool
+   */
+  private async handleRemoteTreeDump(args: any) {
+    // Normalize parameters to camelCase
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath) {
+      return this.createErrorResponse(
+        'Project path is required',
+        ['Provide a valid path to a Godot project directory']
+      );
+    }
+
+    if (!this.validatePath(args.projectPath)) {
+      return this.createErrorResponse(
+        'Invalid path',
+        ['Provide valid paths without ".." or other potentially unsafe characters']
+      );
+    }
+
+    try {
+      // Check if the project directory exists and contains a project.godot file
+      const projectFile = join(args.projectPath, 'project.godot');
+      if (!existsSync(projectFile)) {
+        return this.createErrorResponse(
+          `Not a valid Godot project: ${args.projectPath}`,
+          [
+            'Ensure the path points to a directory containing a project.godot file',
+            'Use list_projects to find valid Godot projects',
+          ]
+        );
+      }
+
+      // If scenePath is provided, we need to run the scene first
+      // For now, we'll execute the remote_tree_dump operation directly
+      // which will work on the current scene tree in headless mode
+
+      // Prepare parameters for the operation
+      const params: any = {};
+
+      if (args.filter) {
+        params.filter = args.filter;
+      }
+
+      if (args.includeProperties !== undefined) {
+        params.includeProperties = args.includeProperties;
+      }
+
+      if (args.includeSignals !== undefined) {
+        params.includeSignals = args.includeSignals;
+      }
+
+      if (args.scenePath) {
+        params.scenePath = args.scenePath;
+      }
+
+      // Execute the operation
+      const { stdout, stderr } = await this.executeOperation('remote_tree_dump', params, args.projectPath);
+
+      if (stderr && stderr.includes('[ERROR]')) {
+        return this.createErrorResponse(
+          `Failed to dump remote tree: ${stderr}`,
+          [
+            'Check if the scene path is valid (if provided)',
+            'Ensure the filter parameters are correct',
+            'Verify the project is properly configured',
+          ]
+        );
+      }
+
+      // Parse the result from stdout
+      let dumpResult: TreeDumpResult;
+      try {
+        // Find JSON in the output
+        const jsonMatch = stdout.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          dumpResult = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('No JSON found in output');
+        }
+      } catch (parseError) {
+        return this.createErrorResponse(
+          `Failed to parse tree dump result: ${parseError}`,
+          [
+            'The operation may have failed to execute properly',
+            'Check the Godot console output for errors',
+          ]
+        );
+      }
+
+      // Format the response
+      let responseText = `# Remote Scene Tree Dump\n\n`;
+      responseText += `**Total Nodes:** ${dumpResult.totalNodes}\n`;
+      responseText += `**Timestamp:** ${dumpResult.timestamp}\n\n`;
+
+      if (args.filter) {
+        responseText += `## Filters Applied\n\n`;
+        if (args.filter.nodeType) {
+          responseText += `- **Node Type:** ${args.filter.nodeType}\n`;
+        }
+        if (args.filter.nodeName) {
+          responseText += `- **Node Name Pattern:** ${args.filter.nodeName}\n`;
+        }
+        if (args.filter.hasScript !== undefined) {
+          responseText += `- **Has Script:** ${args.filter.hasScript}\n`;
+        }
+        if (args.filter.depth !== undefined) {
+          responseText += `- **Max Depth:** ${args.filter.depth}\n`;
+        }
+        responseText += '\n';
+      }
+
+      if (dumpResult.nodes.length === 0) {
+        responseText += `No nodes found matching the specified filters.\n`;
+      } else {
+        responseText += `## Nodes (${dumpResult.nodes.length})\n\n`;
+
+        for (const node of dumpResult.nodes.slice(0, 50)) {
+          responseText += `### ${node.name} (${node.type})\n`;
+          responseText += `**Path:** \`${node.path}\`\n`;
+
+          if (node.script) {
+            responseText += `**Script:** ${node.script}\n`;
+          }
+
+          if (node.children.length > 0) {
+            responseText += `**Children:** ${node.children.length}\n`;
+            responseText += `\`\`\`\n${node.children.slice(0, 10).join('\n')}\n`;
+            if (node.children.length > 10) {
+              responseText += `... and ${node.children.length - 10} more\n`;
+            }
+            responseText += `\`\`\`\n`;
+          }
+
+          if (args.includeProperties && node.properties) {
+            responseText += `**Properties:**\n\`\`\`json\n${JSON.stringify(node.properties, null, 2)}\n\`\`\`\n`;
+          }
+
+          if (args.includeSignals && node.signals && node.signals.length > 0) {
+            responseText += `**Signals:**\n`;
+            for (const signal of node.signals) {
+              responseText += `- **${signal.name}** (${signal.connections.length} connection(s))\n`;
+              for (const conn of signal.connections) {
+                responseText += `  - → ${conn.target}.${conn.method}()\n`;
+              }
+            }
+          }
+
+          responseText += '\n';
+        }
+
+        if (dumpResult.nodes.length > 50) {
+          responseText += `_... and ${dumpResult.nodes.length - 50} more nodes_\n\n`;
+        }
+      }
+
+      responseText += `## Additional Tools\n\n`;
+      responseText += `- Use \`query_node\` to get detailed information about a specific node\n`;
+      responseText += `- Use \`modify_node\` to change node properties\n`;
+      responseText += `- Use \`list_signals\` to see all signals for a node\n`;
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: responseText,
+          },
+        ],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(
+        `Failed to dump remote tree: ${error?.message || 'Unknown error'}`,
+        [
+          'Ensure Godot is installed correctly',
+          'Check if the GODOT_PATH environment variable is set correctly',
+          'Verify the project path is accessible',
+          'Ensure the scene file exists and is valid (if scenePath provided)',
+        ]
+      );
+    }
+  }
+
+  /**
+   * Handle the toggle_debug_draw tool
+   */
+  private async handleToggleDebugDraw(args: any) {
+    // Normalize parameters to camelCase
+    args = this.normalizeParameters(args);
+
+    if (!args.projectPath) {
+      return this.createErrorResponse(
+        'Project path is required',
+        ['Provide a valid path to a Godot project directory']
+      );
+    }
+
+    if (!args.mode) {
+      return this.createErrorResponse(
+        'Debug draw mode is required',
+        ['Specify a valid debug draw mode (e.g., "wireframe", "overdraw", "disabled")']
+      );
+    }
+
+    if (!this.validatePath(args.projectPath)) {
+      return this.createErrorResponse(
+        'Invalid path',
+        ['Provide valid paths without ".." or other potentially unsafe characters']
+      );
+    }
+
+    try {
+      // Check if the project directory exists and contains a project.godot file
+      const projectFile = join(args.projectPath, 'project.godot');
+      if (!existsSync(projectFile)) {
+        return this.createErrorResponse(
+          `Not a valid Godot project: ${args.projectPath}`,
+          [
+            'Ensure the path points to a directory containing a project.godot file',
+            'Use list_projects to find valid Godot projects',
+          ]
+        );
+      }
+
+      // Validate the debug draw mode
+      const validModes = [
+        'disabled', 'unshaded', 'lighting', 'overdraw', 'wireframe',
+        'normal_buffer', 'voxel_gi_albedo', 'voxel_gi_lighting', 'voxel_gi_emission',
+        'shadow_atlas', 'directional_shadow_atlas', 'scene_luminance', 'ssao', 'ssil',
+        'pssm_splits', 'decal_atlas', 'sdfgi', 'sdfgi_probes', 'gi_buffer',
+        'disable_lod', 'cluster_omni_lights', 'cluster_spot_lights', 'cluster_decals',
+        'cluster_reflection_probes', 'occluders', 'motion_vectors', 'internal_buffer'
+      ];
+
+      if (!validModes.includes(args.mode)) {
+        return this.createErrorResponse(
+          `Invalid debug draw mode: ${args.mode}`,
+          [
+            `Valid modes are: ${validModes.join(', ')}`,
+            'Check the Godot 4.5+ documentation for Viewport.DebugDraw enum',
+          ]
+        );
+      }
+
+      // Prepare parameters for the operation
+      const params: any = {
+        mode: args.mode,
+      };
+
+      if (args.viewport) {
+        params.viewport = args.viewport;
+      }
+
+      // Execute the operation
+      const { stdout, stderr } = await this.executeOperation('toggle_debug_draw', params, args.projectPath);
+
+      if (stderr && stderr.includes('[ERROR]')) {
+        return this.createErrorResponse(
+          `Failed to toggle debug draw: ${stderr}`,
+          [
+            'Check if the viewport path is valid (if provided)',
+            'Ensure the debug draw mode is supported by your Godot version',
+            'Verify the project is properly configured',
+          ]
+        );
+      }
+
+      // Parse the result from stdout
+      let result: any;
+      try {
+        // Find JSON in the output
+        const jsonMatch = stdout.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          result = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('No JSON found in output');
+        }
+      } catch (parseError) {
+        return this.createErrorResponse(
+          `Failed to parse toggle debug draw result: ${parseError}`,
+          [
+            'The operation may have failed to execute properly',
+            'Check the Godot console output for errors',
+          ]
+        );
+      }
+
+      // Format the response
+      let responseText = `# Debug Draw Mode Changed\n\n`;
+      responseText += `**Mode:** ${result.mode}\n`;
+      responseText += `**Viewport:** ${result.viewport || '/root'}\n`;
+      responseText += `**Status:** ${result.success ? '✓ Success' : '✗ Failed'}\n\n`;
+
+      // Add mode description
+      const modeDescriptions: Record<string, string> = {
+        'disabled': 'Normal rendering without debug visualization',
+        'unshaded': 'Render without shading, showing only base colors',
+        'lighting': 'Visualize lighting calculations',
+        'overdraw': 'Show overdraw (how many times pixels are drawn)',
+        'wireframe': 'Render geometry as wireframe',
+        'normal_buffer': 'Visualize normal buffer',
+        'voxel_gi_albedo': 'Show VoxelGI albedo',
+        'voxel_gi_lighting': 'Show VoxelGI lighting',
+        'voxel_gi_emission': 'Show VoxelGI emission',
+        'shadow_atlas': 'Visualize shadow atlas',
+        'directional_shadow_atlas': 'Visualize directional shadow atlas',
+        'scene_luminance': 'Show scene luminance',
+        'ssao': 'Visualize Screen Space Ambient Occlusion',
+        'ssil': 'Visualize Screen Space Indirect Lighting',
+        'pssm_splits': 'Show Parallel Split Shadow Map splits',
+        'decal_atlas': 'Visualize decal atlas',
+        'sdfgi': 'Show Signed Distance Field Global Illumination',
+        'sdfgi_probes': 'Show SDFGI probes',
+        'gi_buffer': 'Visualize Global Illumination buffer',
+        'disable_lod': 'Disable Level of Detail',
+        'cluster_omni_lights': 'Show clustered omni lights',
+        'cluster_spot_lights': 'Show clustered spot lights',
+        'cluster_decals': 'Show clustered decals',
+        'cluster_reflection_probes': 'Show clustered reflection probes',
+        'occluders': 'Visualize occluders',
+        'motion_vectors': 'Show motion vectors',
+        'internal_buffer': 'Show internal rendering buffer',
+      };
+
+      if (modeDescriptions[args.mode]) {
+        responseText += `## Mode Description\n\n`;
+        responseText += `${modeDescriptions[args.mode]}\n\n`;
+      }
+
+      responseText += `## Usage Notes\n\n`;
+      responseText += `- Debug draw modes are useful for diagnosing rendering issues\n`;
+      responseText += `- Some modes (like SDFGI, VoxelGI) only work if those features are enabled in your scene\n`;
+      responseText += `- Use \`disabled\` mode to return to normal rendering\n`;
+      responseText += `- Debug draw affects the specified viewport and all its children\n\n`;
+
+      responseText += `## Additional Tools\n\n`;
+      responseText += `- Use \`run_scene\` to run a scene and see the debug visualization\n`;
+      responseText += `- Use \`capture_screenshot\` to capture the debug visualization\n`;
+      responseText += `- Use \`remote_tree_dump\` to inspect the scene tree structure\n`;
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: responseText,
+          },
+        ],
+      };
+    } catch (error: any) {
+      return this.createErrorResponse(
+        `Failed to toggle debug draw: ${error?.message || 'Unknown error'}`,
+        [
+          'Ensure Godot is installed correctly',
+          'Check if the GODOT_PATH environment variable is set correctly',
+          'Verify the project path is accessible',
+          'Ensure you are using Godot 4.5 or later for all debug draw modes',
         ]
       );
     }

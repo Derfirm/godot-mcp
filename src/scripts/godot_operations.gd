@@ -135,6 +135,14 @@ func _init():
             setup_autoload(params)
         "manage_plugins":
             manage_plugins(params)
+        "capture_screenshot":
+            capture_screenshot(params)
+        "list_missing_assets":
+            list_missing_assets(params)
+        "remote_tree_dump":
+            remote_tree_dump(params)
+        "toggle_debug_draw":
+            toggle_debug_draw(params)
         _:
             log_error("Unknown operation: " + operation)
             quit(1)
@@ -5566,3 +5574,629 @@ func disable_plugin(plugin_name):
             quit(1)
     else:
         print("Plugin '" + plugin_name + "' is not enabled")
+
+# Capture screenshot from viewport
+func capture_screenshot(params):
+    print("Capturing screenshot...")
+    
+    if not params.has("output_path"):
+        printerr("Missing required parameter: output_path")
+        quit(1)
+    
+    var output_path = params.output_path as String
+    var delay = params.get("delay", 0.0) as float
+    
+    if debug_mode:
+        print("Output path: " + output_path)
+        print("Delay: " + str(delay))
+    
+    # Normalize the output path
+    var full_output_path = output_path
+    if not full_output_path.begins_with("res://") and not full_output_path.is_absolute_path():
+        full_output_path = "res://" + full_output_path
+    if debug_mode:
+        print("Full output path: " + full_output_path)
+    
+    # Convert to absolute path for saving
+    var absolute_output_path = ProjectSettings.globalize_path(full_output_path)
+    if debug_mode:
+        print("Absolute output path: " + absolute_output_path)
+    
+    # Ensure output directory exists
+    var output_dir = absolute_output_path.get_base_dir()
+    if not DirAccess.dir_exists_absolute(output_dir):
+        if debug_mode:
+            print("Creating output directory: " + output_dir)
+        var make_dir_error = DirAccess.make_dir_recursive_absolute(output_dir)
+        if make_dir_error != OK:
+            printerr("Failed to create output directory: " + str(make_dir_error))
+            print(JSON.stringify({"success": false, "error": "Failed to create output directory"}))
+            quit(1)
+    
+    # If scenePath is provided, we need to load and run the scene
+    if params.has("scene_path"):
+        var scene_path = params.scene_path as String
+        if not scene_path.begins_with("res://"):
+            scene_path = "res://" + scene_path
+        
+        if debug_mode:
+            print("Loading scene: " + scene_path)
+        
+        if not FileAccess.file_exists(scene_path):
+            printerr("Scene file does not exist: " + scene_path)
+            print(JSON.stringify({"success": false, "error": "Scene file not found"}))
+            quit(1)
+        
+        # Load and instantiate the scene
+        var scene = load(scene_path)
+        if not scene:
+            printerr("Failed to load scene: " + scene_path)
+            print(JSON.stringify({"success": false, "error": "Failed to load scene"}))
+            quit(1)
+        
+        var scene_root = scene.instantiate()
+        if not scene_root:
+            printerr("Failed to instantiate scene")
+            print(JSON.stringify({"success": false, "error": "Failed to instantiate scene"}))
+            quit(1)
+        
+        # Add scene to the tree
+        root.add_child(scene_root)
+        
+        if debug_mode:
+            print("Scene loaded and added to tree")
+    
+    # Wait for delay if specified
+    if delay > 0:
+        if debug_mode:
+            print("Waiting for " + str(delay) + " seconds...")
+        await get_tree().create_timer(delay).timeout
+    
+    # Get the viewport
+    var viewport = root.get_viewport()
+    if not viewport:
+        printerr("Failed to get viewport")
+        print(JSON.stringify({"success": false, "error": "Failed to get viewport"}))
+        quit(1)
+    
+    # Change viewport size if specified
+    if params.has("size"):
+        var size = params.size as Dictionary
+        if size.has("width") and size.has("height"):
+            var new_size = Vector2i(size.width, size.height)
+            viewport.size = new_size
+            if debug_mode:
+                print("Viewport size set to: " + str(new_size))
+            
+            # Wait a frame for the viewport to update
+            await get_tree().process_frame
+    
+    # Capture the image from viewport
+    var image = viewport.get_texture().get_image()
+    if not image:
+        printerr("Failed to get image from viewport")
+        print(JSON.stringify({"success": false, "error": "Failed to get image from viewport"}))
+        quit(1)
+    
+    if debug_mode:
+        print("Image captured: " + str(image.get_width()) + "x" + str(image.get_height()))
+    
+    # Save the image as PNG
+    var save_error = image.save_png(absolute_output_path)
+    if save_error != OK:
+        printerr("Failed to save screenshot: " + str(save_error))
+        print(JSON.stringify({"success": false, "error": "Failed to save screenshot: " + str(save_error)}))
+        quit(1)
+    
+    # Verify the file was created
+    if not FileAccess.file_exists(absolute_output_path):
+        printerr("Screenshot file not found after save")
+        print(JSON.stringify({"success": false, "error": "Screenshot file not found after save"}))
+        quit(1)
+    
+    if debug_mode:
+        print("Screenshot saved successfully")
+    
+    # Return success result
+    var result = {
+        "success": true,
+        "output_path": output_path,
+        "size": {
+            "width": image.get_width(),
+            "height": image.get_height()
+        }
+    }
+    
+    print(JSON.stringify(result))
+
+# List missing assets in the project
+func list_missing_assets(params):
+    print("Scanning project for missing assets...")
+    
+    var check_types = params.get("check_types", ["texture", "audio", "script", "scene", "material", "mesh"]) as Array
+    if debug_mode:
+        print("Check types: " + str(check_types))
+    
+    var missing: Array[Dictionary] = []
+    var checked_paths: Array[String] = []
+    var resource_references: Dictionary = {}  # Maps resource path -> array of files that reference it
+    
+    # Scan all .tscn, .tres, and .gd files in the project
+    _scan_directory_for_references("res://", resource_references, checked_paths)
+    
+    if debug_mode:
+        print("Scanned " + str(checked_paths.size()) + " files")
+        print("Found " + str(resource_references.size()) + " resource references")
+    
+    # Check each referenced resource to see if it exists
+    for resource_path in resource_references.keys():
+        var referenced_by = resource_references[resource_path] as Array
+        
+        # Skip if not checking this type
+        var resource_type = _get_resource_type(resource_path)
+        if not check_types.has(resource_type):
+            continue
+        
+        # Check if the resource exists
+        if not FileAccess.file_exists(resource_path) and not ResourceLoader.exists(resource_path):
+            var suggested_fixes: Array[String] = []
+            
+            # Generate suggested fixes
+            var filename = resource_path.get_file()
+            suggested_fixes.append("Check if the file was moved or renamed")
+            suggested_fixes.append("Search for '" + filename + "' in the project directory")
+            suggested_fixes.append("Update references in: " + str(referenced_by))
+            
+            # Check for similar files
+            var similar_files = _find_similar_files(resource_path)
+            if similar_files.size() > 0:
+                suggested_fixes.append("Similar files found: " + str(similar_files))
+            
+            missing.append({
+                "path": resource_path,
+                "type": resource_type,
+                "referenced_by": referenced_by,
+                "suggested_fixes": suggested_fixes
+            })
+    
+    # Create the report
+    var report = {
+        "missing": missing,
+        "total_missing": missing.size(),
+        "checked_paths": checked_paths,
+        "timestamp": Time.get_datetime_string_from_system()
+    }
+    
+    var result = {
+        "success": true,
+        "report": report
+    }
+    
+    print(JSON.stringify(result))
+
+# Recursively scan directory for resource references
+func _scan_directory_for_references(dir_path: String, references: Dictionary, checked_paths: Array):
+    var dir = DirAccess.open(dir_path)
+    if not dir:
+        if debug_mode:
+            print("Failed to open directory: " + dir_path)
+        return
+    
+    dir.list_dir_begin()
+    var file_name = dir.get_next()
+    
+    while file_name != "":
+        # Skip hidden files and directories
+        if file_name.begins_with("."):
+            file_name = dir.get_next()
+            continue
+        
+        var full_path = dir_path.path_join(file_name)
+        
+        if dir.current_is_dir():
+            # Recursively scan subdirectories
+            _scan_directory_for_references(full_path, references, checked_paths)
+        else:
+            # Check if this is a file we should scan
+            var ext = file_name.get_extension().to_lower()
+            if ext in ["tscn", "tres", "gd", "gdscript"]:
+                checked_paths.append(full_path)
+                _extract_resource_references(full_path, references)
+        
+        file_name = dir.get_next()
+    
+    dir.list_dir_end()
+
+# Extract resource references from a file
+func _extract_resource_references(file_path: String, references: Dictionary):
+    var file = FileAccess.open(file_path, FileAccess.READ)
+    if not file:
+        if debug_mode:
+            print("Failed to open file: " + file_path)
+        return
+    
+    var content = file.get_as_text()
+    file.close()
+    
+    # Patterns to match resource paths
+    # Pattern 1: ExtResource("res://path/to/resource.ext")
+    # Pattern 2: path = "res://path/to/resource.ext"
+    # Pattern 3: load("res://path/to/resource.ext")
+    # Pattern 4: preload("res://path/to/resource.ext")
+    
+    var patterns = [
+        'ExtResource\\("([^"]+)"\\)',
+        'path\\s*=\\s*"(res://[^"]+)"',
+        'load\\("(res://[^"]+)"\\)',
+        'preload\\("(res://[^"]+)"\\)',
+        '"(res://[^"]+\\.(?:png|jpg|jpeg|webp|svg|wav|mp3|ogg|gd|tscn|tres|material|mesh))"'
+    ]
+    
+    for pattern in patterns:
+        var regex = RegEx.new()
+        regex.compile(pattern)
+        var matches = regex.search_all(content)
+        
+        for match_result in matches:
+            if match_result.get_group_count() > 0:
+                var resource_path = match_result.get_string(1)
+                
+                # Normalize the path
+                if not resource_path.begins_with("res://"):
+                    resource_path = "res://" + resource_path
+                
+                # Add to references
+                if not references.has(resource_path):
+                    references[resource_path] = []
+                
+                var refs = references[resource_path] as Array
+                if not refs.has(file_path):
+                    refs.append(file_path)
+
+# Get the type of a resource based on its extension
+func _get_resource_type(resource_path: String) -> String:
+    var ext = resource_path.get_extension().to_lower()
+    
+    match ext:
+        "png", "jpg", "jpeg", "webp", "svg", "bmp", "tga":
+            return "texture"
+        "wav", "mp3", "ogg":
+            return "audio"
+        "gd", "gdscript", "cs":
+            return "script"
+        "tscn":
+            return "scene"
+        "tres":
+            # Could be material, mesh, or other resource
+            # Try to determine from content if possible
+            if resource_path.contains("material"):
+                return "material"
+            elif resource_path.contains("mesh"):
+                return "mesh"
+            else:
+                return "resource"
+        "material":
+            return "material"
+        "mesh", "obj", "fbx", "gltf", "glb":
+            return "mesh"
+        _:
+            return "unknown"
+
+# Find similar files in the project
+func _find_similar_files(missing_path: String) -> Array[String]:
+    var similar: Array[String] = []
+    var filename = missing_path.get_file()
+    var base_name = filename.get_basename()
+    
+    # Search for files with similar names
+    _search_similar_in_directory("res://", base_name, similar)
+    
+    return similar
+
+# Recursively search for similar files
+func _search_similar_in_directory(dir_path: String, search_name: String, results: Array):
+    var dir = DirAccess.open(dir_path)
+    if not dir:
+        return
+    
+    dir.list_dir_begin()
+    var file_name = dir.get_next()
+    
+    while file_name != "":
+        if file_name.begins_with("."):
+            file_name = dir.get_next()
+            continue
+        
+        var full_path = dir_path.path_join(file_name)
+        
+        if dir.current_is_dir():
+            _search_similar_in_directory(full_path, search_name, results)
+        else:
+            # Check if filename is similar (case-insensitive)
+            var file_base = file_name.get_basename().to_lower()
+            var search_lower = search_name.to_lower()
+            
+            if file_base.contains(search_lower) or search_lower.contains(file_base):
+                results.append(full_path)
+                
+                # Limit results to avoid too many matches
+                if results.size() >= 5:
+                    dir.list_dir_end()
+                    return
+        
+        file_name = dir.get_next()
+    
+    dir.list_dir_end()
+
+# Dump the remote scene tree during runtime
+func remote_tree_dump(params):
+    print("Dumping remote scene tree")
+    
+    # Get the root of the scene tree
+    var root = get_root()
+    if not root:
+        printerr("Failed to get scene tree root")
+        quit(1)
+    
+    # Parse filter parameters
+    var filter = params.get("filter", {}) as Dictionary
+    var include_properties = params.get("include_properties", false) as bool
+    var include_signals = params.get("include_signals", false) as bool
+    
+    if debug_mode:
+        print("Filter: " + str(filter))
+        print("Include properties: " + str(include_properties))
+        print("Include signals: " + str(include_signals))
+    
+    # If scenePath is provided, load and instantiate it
+    if params.has("scene_path"):
+        var scene_path = params.scene_path as String
+        if not scene_path.begins_with("res://"):
+            scene_path = "res://" + scene_path
+        
+        if debug_mode:
+            print("Loading scene: " + scene_path)
+        
+        if not FileAccess.file_exists(scene_path):
+            printerr("Scene file does not exist: " + scene_path)
+            quit(1)
+        
+        var scene = load(scene_path) as PackedScene
+        if not scene:
+            printerr("Failed to load scene: " + scene_path)
+            quit(1)
+        
+        var scene_instance = scene.instantiate()
+        if not scene_instance:
+            printerr("Failed to instantiate scene")
+            quit(1)
+        
+        # Add to tree temporarily
+        root.add_child(scene_instance)
+        
+        if debug_mode:
+            print("Scene instantiated and added to tree")
+    
+    # Collect nodes
+    var nodes: Array[Dictionary] = []
+    var total_count = 0
+    
+    # Start recursive dump from root
+    _dump_node_recursive(root, nodes, filter, include_properties, include_signals, 0, total_count)
+    
+    # Create result
+    var result = {
+        "success": true,
+        "nodes": nodes,
+        "total_nodes": nodes.size(),
+        "timestamp": Time.get_datetime_string_from_system()
+    }
+    
+    # Output as JSON
+    print(JSON.stringify(result))
+
+# Recursively dump node information
+func _dump_node_recursive(
+    node: Node,
+    result: Array,
+    filter: Dictionary,
+    include_properties: bool,
+    include_signals: bool,
+    current_depth: int,
+    total_count: int
+) -> void:
+    # Check depth filter
+    var max_depth = filter.get("depth", -1) as int
+    if max_depth >= 0 and current_depth > max_depth:
+        return
+    
+    # Filter by node type
+    if filter.has("node_type"):
+        var type_filter = filter.node_type as String
+        if not node.is_class(type_filter):
+            # Skip this node and its children
+            return
+    
+    # Filter by node name (regex)
+    if filter.has("node_name"):
+        var name_filter = filter.node_name as String
+        var regex = RegEx.new()
+        var compile_error = regex.compile(name_filter)
+        if compile_error != OK:
+            if debug_mode:
+                print("Invalid regex pattern: " + name_filter)
+        else:
+            var match_result = regex.search(node.name)
+            if not match_result:
+                # Skip this node and its children
+                return
+    
+    # Filter by script presence
+    if filter.get("has_script", false):
+        if not node.get_script():
+            # Skip this node and its children
+            return
+    
+    # Create node info
+    var node_info = {
+        "path": str(node.get_path()),
+        "type": node.get_class(),
+        "name": node.name,
+        "children": []
+    }
+    
+    # Add properties if requested
+    if include_properties:
+        var properties = {}
+        for prop in node.get_property_list():
+            # Only include editor-visible properties
+            if prop.usage & PROPERTY_USAGE_EDITOR:
+                var prop_name = prop.name as String
+                # Skip some internal properties
+                if not prop_name.begins_with("_"):
+                    var value = node.get(prop_name)
+                    # Convert to serializable format
+                    properties[prop_name] = _serialize_value(value)
+        node_info["properties"] = properties
+    
+    # Add signals if requested
+    if include_signals:
+        var signals_info: Array[Dictionary] = []
+        for sig in node.get_signal_list():
+            var sig_name = sig.name as String
+            var connections = node.get_signal_connection_list(sig_name)
+            if connections.size() > 0:
+                var signal_data = {
+                    "name": sig_name,
+                    "connections": []
+                }
+                for conn in connections:
+                    var conn_dict = conn as Dictionary
+                    signal_data.connections.append({
+                        "target": str(conn_dict.get("callable", "").get_object().get_path() if conn_dict.has("callable") else "unknown"),
+                        "method": str(conn_dict.get("callable", "").get_method() if conn_dict.has("callable") else "unknown")
+                    })
+                signals_info.append(signal_data)
+        if signals_info.size() > 0:
+            node_info["signals"] = signals_info
+    
+    # Add script if present
+    var script = node.get_script()
+    if script:
+        node_info["script"] = script.resource_path
+    
+    # Add children paths
+    for child in node.get_children():
+        node_info.children.append(str(child.get_path()))
+    
+    # Add to result
+    result.append(node_info)
+    total_count += 1
+    
+    # Recursively process children
+    for child in node.get_children():
+        _dump_node_recursive(child, result, filter, include_properties, include_signals, current_depth + 1, total_count)
+
+# Serialize a value to a JSON-compatible format
+func _serialize_value(value):
+    if value == null:
+        return null
+    elif value is bool or value is int or value is float or value is String:
+        return value
+    elif value is Vector2:
+        return {"x": value.x, "y": value.y}
+    elif value is Vector3:
+        return {"x": value.x, "y": value.y, "z": value.z}
+    elif value is Color:
+        return {"r": value.r, "g": value.g, "b": value.b, "a": value.a}
+    elif value is Array:
+        var arr = []
+        for item in value:
+            arr.append(_serialize_value(item))
+        return arr
+    elif value is Dictionary:
+        var dict = {}
+        for key in value:
+            dict[str(key)] = _serialize_value(value[key])
+        return dict
+    elif value is Object:
+        # For objects, return their class name or path if it's a resource
+        if value is Resource:
+            return value.resource_path if value.resource_path else value.get_class()
+        else:
+            return value.get_class()
+    else:
+        return str(value)
+
+# Toggle debug draw mode for viewport diagnostics (Godot 4.5+)
+func toggle_debug_draw(params):
+    print("Toggling debug draw mode")
+    
+    var mode_str = params.mode as String
+    var viewport_path = params.get("viewport", "/root") as String
+    
+    if debug_mode:
+        print("Mode: " + mode_str)
+        print("Viewport path: " + viewport_path)
+    
+    # Get the viewport
+    var viewport: Viewport = get_node(viewport_path)
+    if not viewport:
+        printerr("Viewport not found: " + viewport_path)
+        quit(1)
+    
+    if debug_mode:
+        print("Viewport found: " + viewport.name)
+    
+    # Map string values to Viewport.DebugDraw enum (Godot 4.5+)
+    var debug_draw_modes = {
+        "disabled": Viewport.DEBUG_DRAW_DISABLED,
+        "unshaded": Viewport.DEBUG_DRAW_UNSHADED,
+        "lighting": Viewport.DEBUG_DRAW_LIGHTING,
+        "overdraw": Viewport.DEBUG_DRAW_OVERDRAW,
+        "wireframe": Viewport.DEBUG_DRAW_WIREFRAME,
+        "normal_buffer": Viewport.DEBUG_DRAW_NORMAL_BUFFER,
+        "voxel_gi_albedo": Viewport.DEBUG_DRAW_VOXEL_GI_ALBEDO,
+        "voxel_gi_lighting": Viewport.DEBUG_DRAW_VOXEL_GI_LIGHTING,
+        "voxel_gi_emission": Viewport.DEBUG_DRAW_VOXEL_GI_EMISSION,
+        "shadow_atlas": Viewport.DEBUG_DRAW_SHADOW_ATLAS,
+        "directional_shadow_atlas": Viewport.DEBUG_DRAW_DIRECTIONAL_SHADOW_ATLAS,
+        "scene_luminance": Viewport.DEBUG_DRAW_SCENE_LUMINANCE,
+        "ssao": Viewport.DEBUG_DRAW_SSAO,
+        "ssil": Viewport.DEBUG_DRAW_SSIL,
+        "pssm_splits": Viewport.DEBUG_DRAW_PSSM_SPLITS,
+        "decal_atlas": Viewport.DEBUG_DRAW_DECAL_ATLAS,
+        "sdfgi": Viewport.DEBUG_DRAW_SDFGI,
+        "sdfgi_probes": Viewport.DEBUG_DRAW_SDFGI_PROBES,
+        "gi_buffer": Viewport.DEBUG_DRAW_GI_BUFFER,
+        "disable_lod": Viewport.DEBUG_DRAW_DISABLE_LOD,
+        "cluster_omni_lights": Viewport.DEBUG_DRAW_CLUSTER_OMNI_LIGHTS,
+        "cluster_spot_lights": Viewport.DEBUG_DRAW_CLUSTER_SPOT_LIGHTS,
+        "cluster_decals": Viewport.DEBUG_DRAW_CLUSTER_DECALS,
+        "cluster_reflection_probes": Viewport.DEBUG_DRAW_CLUSTER_REFLECTION_PROBES,
+        "occluders": Viewport.DEBUG_DRAW_OCCLUDERS,
+        "motion_vectors": Viewport.DEBUG_DRAW_MOTION_VECTORS,
+        "internal_buffer": Viewport.DEBUG_DRAW_INTERNAL_BUFFER
+    }
+    
+    if not debug_draw_modes.has(mode_str):
+        printerr("Unknown debug draw mode: " + mode_str)
+        printerr("Valid modes: " + str(debug_draw_modes.keys()))
+        quit(1)
+    
+    # Set the debug draw mode
+    var debug_draw_value = debug_draw_modes[mode_str]
+    viewport.debug_draw = debug_draw_value
+    
+    if debug_mode:
+        print("Debug draw mode set to: " + mode_str + " (value: " + str(debug_draw_value) + ")")
+    
+    # Create result
+    var result = {
+        "success": true,
+        "mode": mode_str,
+        "viewport": viewport_path
+    }
+    
+    # Output as JSON
+    print(JSON.stringify(result))

@@ -564,9 +564,109 @@ interface AddAudioPlayerParams {
 ```typescript
 interface DebugOperations {
   runWithDebug(params: RunDebugParams): Promise<DebugSession>;
+  runScene(params: RunSceneParams): Promise<SceneRunResult>;
   setBreakpoint(params: SetBreakpointParams): Promise<OperationResult>;
   getVariables(params: GetVariablesParams): Promise<VariableInfo[]>;
   profilePerformance(params: ProfileParams): Promise<ProfileResult>;
+  toggleDebugDraw(params: ToggleDebugDrawParams): Promise<OperationResult>;
+  remoteTreeDump(params: RemoteTreeDumpParams): Promise<TreeDumpResult>;
+  captureScreenshot(params: CaptureScreenshotParams): Promise<OperationResult>;
+  captureMovie(params: CaptureMovieParams): Promise<OperationResult>;
+  listMissingAssets(params: ListMissingAssetsParams): Promise<MissingAssetsReport>;
+}
+
+interface RunSceneParams {
+  projectPath: string;
+  scenePath: string;
+  debug?: boolean; // Использовать флаг -d
+  additionalArgs?: string[]; // Дополнительные CLI аргументы
+}
+
+interface SceneRunResult {
+  success: boolean;
+  output: string[];
+  errors: ErrorInfo[];
+  exitCode: number;
+}
+
+interface ToggleDebugDrawParams {
+  projectPath: string;
+  mode: 'disabled' | 'unshaded' | 'lighting' | 'overdraw' | 'wireframe' | 
+        'normal_buffer' | 'voxel_gi_albedo' | 'voxel_gi_lighting' | 
+        'voxel_gi_emission' | 'shadow_atlas' | 'directional_shadow_atlas' |
+        'scene_luminance' | 'ssao' | 'ssil' | 'pssm_splits' | 'decal_atlas' |
+        'sdfgi' | 'sdfgi_probes' | 'gi_buffer' | 'disable_lod' | 'cluster_omni_lights' |
+        'cluster_spot_lights' | 'cluster_decals' | 'cluster_reflection_probes' |
+        'occluders' | 'motion_vectors' | 'internal_buffer'; // Godot 4.5+ debug draw modes
+  viewport?: string; // Путь к конкретному Viewport узлу
+}
+
+interface RemoteTreeDumpParams {
+  projectPath: string;
+  filter?: {
+    nodeType?: string; // Фильтр по типу узла (например, "CharacterBody2D")
+    nodeName?: string; // Фильтр по имени узла (regex поддержка)
+    hasScript?: boolean; // Только узлы со скриптами
+    depth?: number; // Максимальная глубина дерева
+  };
+  includeProperties?: boolean; // Включить свойства узлов
+  includeSignals?: boolean; // Включить подключенные сигналы
+}
+
+interface TreeDumpResult {
+  nodes: NodeDumpInfo[];
+  totalNodes: number;
+  timestamp: string;
+}
+
+interface NodeDumpInfo {
+  path: string;
+  type: string;
+  name: string;
+  children: string[];
+  properties?: Record<string, any>;
+  signals?: SignalConnection[];
+  script?: string;
+}
+
+interface CaptureScreenshotParams {
+  projectPath: string;
+  outputPath: string;
+  scenePath?: string; // Если указано, запустить сцену и сделать скриншот
+  delay?: number; // Задержка перед захватом (в секундах)
+  size?: { width: number; height: number };
+}
+
+interface CaptureMovieParams {
+  projectPath: string;
+  scenePath: string;
+  outputPath: string;
+  settings: {
+    fps?: number; // По умолчанию 60
+    duration?: number; // Длительность в секундах
+    quality?: number; // 0.0 - 1.0
+    format?: 'avi' | 'png_sequence'; // Godot 4.5+ Movie Maker форматы
+    speaker_mode?: 'stereo' | 'surround'; // Аудио режим
+  };
+}
+
+interface ListMissingAssetsParams {
+  projectPath: string;
+  checkTypes?: ('texture' | 'audio' | 'script' | 'scene' | 'material' | 'mesh')[]; // Типы для проверки
+}
+
+interface MissingAssetsReport {
+  missing: MissingAssetInfo[];
+  totalMissing: number;
+  checkedPaths: string[];
+  timestamp: string;
+}
+
+interface MissingAssetInfo {
+  path: string;
+  type: string;
+  referencedBy: string[]; // Какие файлы ссылаются на этот ассет
+  suggestedFixes?: string[]; // Возможные решения
 }
 
 interface DebugSession {
@@ -581,6 +681,483 @@ interface ErrorInfo {
   stack: StackFrame[];
   script: string;
   line: number;
+}
+```
+
+#### GDScript Implementation (Godot 4.5+)
+
+```gdscript
+# Запуск конкретной сцены в debug режиме
+func run_scene(params: Dictionary) -> Dictionary:
+    # Эта операция выполняется через TypeScript, так как требует запуск нового процесса
+    # GDScript часть только для подготовки параметров
+    var scene_path := params.scene_path as String
+    
+    # Валидация сцены
+    if not FileAccess.file_exists(scene_path):
+        return create_error("Scene not found: " + scene_path)
+    
+    # Возвращаем параметры для CLI запуска
+    return {
+        "success": true,
+        "cli_command": "godot4",
+        "args": ["--path", params.project_path, scene_path] + 
+                (["-d"] if params.get("debug", true) else []) +
+                params.get("additional_args", [])
+    }
+
+# Переключение режима отрисовки для диагностики
+func toggle_debug_draw(params: Dictionary) -> Dictionary:
+    var mode_str := params.mode as String
+    var viewport_path := params.get("viewport", "/root") as String
+    
+    # Получаем viewport
+    var viewport: Viewport = get_node(viewport_path)
+    if not viewport:
+        return create_error("Viewport not found: " + viewport_path)
+    
+    # Маппинг строковых значений на enum (Godot 4.5+)
+    var debug_draw_modes := {
+        "disabled": Viewport.DEBUG_DRAW_DISABLED,
+        "unshaded": Viewport.DEBUG_DRAW_UNSHADED,
+        "lighting": Viewport.DEBUG_DRAW_LIGHTING,
+        "overdraw": Viewport.DEBUG_DRAW_OVERDRAW,
+        "wireframe": Viewport.DEBUG_DRAW_WIREFRAME,
+        "normal_buffer": Viewport.DEBUG_DRAW_NORMAL_BUFFER,
+        "voxel_gi_albedo": Viewport.DEBUG_DRAW_VOXEL_GI_ALBEDO,
+        "voxel_gi_lighting": Viewport.DEBUG_DRAW_VOXEL_GI_LIGHTING,
+        "voxel_gi_emission": Viewport.DEBUG_DRAW_VOXEL_GI_EMISSION,
+        "shadow_atlas": Viewport.DEBUG_DRAW_SHADOW_ATLAS,
+        "directional_shadow_atlas": Viewport.DEBUG_DRAW_DIRECTIONAL_SHADOW_ATLAS,
+        "scene_luminance": Viewport.DEBUG_DRAW_SCENE_LUMINANCE,
+        "ssao": Viewport.DEBUG_DRAW_SSAO,
+        "ssil": Viewport.DEBUG_DRAW_SSIL,
+        "pssm_splits": Viewport.DEBUG_DRAW_PSSM_SPLITS,
+        "decal_atlas": Viewport.DEBUG_DRAW_DECAL_ATLAS,
+        "sdfgi": Viewport.DEBUG_DRAW_SDFGI,
+        "sdfgi_probes": Viewport.DEBUG_DRAW_SDFGI_PROBES,
+        "gi_buffer": Viewport.DEBUG_DRAW_GI_BUFFER,
+        "disable_lod": Viewport.DEBUG_DRAW_DISABLE_LOD,
+        "cluster_omni_lights": Viewport.DEBUG_DRAW_CLUSTER_OMNI_LIGHTS,
+        "cluster_spot_lights": Viewport.DEBUG_DRAW_CLUSTER_SPOT_LIGHTS,
+        "cluster_decals": Viewport.DEBUG_DRAW_CLUSTER_DECALS,
+        "cluster_reflection_probes": Viewport.DEBUG_DRAW_CLUSTER_REFLECTION_PROBES,
+        "occluders": Viewport.DEBUG_DRAW_OCCLUDERS,
+        "motion_vectors": Viewport.DEBUG_DRAW_MOTION_VECTORS,
+        "internal_buffer": Viewport.DEBUG_DRAW_INTERNAL_BUFFER
+    }
+    
+    if not debug_draw_modes.has(mode_str):
+        return create_error("Unknown debug draw mode: " + mode_str)
+    
+    viewport.debug_draw = debug_draw_modes[mode_str]
+    
+    return {
+        "success": true,
+        "mode": mode_str,
+        "viewport": viewport_path
+    }
+
+# Дамп удалённого дерева сцен во время рантайма
+func remote_tree_dump(params: Dictionary) -> Dictionary:
+    var root := get_tree().root
+    var filter := params.get("filter", {}) as Dictionary
+    var include_properties := params.get("include_properties", false) as bool
+    var include_signals := params.get("include_signals", false) as bool
+    
+    var nodes: Array[Dictionary] = []
+    var total_count := 0
+    
+    # Рекурсивный обход дерева
+    _dump_node_recursive(root, nodes, filter, include_properties, include_signals, 0, total_count)
+    
+    return {
+        "success": true,
+        "nodes": nodes,
+        "total_nodes": total_count,
+        "timestamp": Time.get_datetime_string_from_system()
+    }
+
+func _dump_node_recursive(
+    node: Node, 
+    result: Array[Dictionary], 
+    filter: Dictionary,
+    include_properties: bool,
+    include_signals: bool,
+    current_depth: int,
+    total_count: int
+) -> void:
+    # Проверка глубины
+    var max_depth := filter.get("depth", -1) as int
+    if max_depth >= 0 and current_depth > max_depth:
+        return
+    
+    # Фильтрация по типу
+    if filter.has("node_type"):
+        var type_filter := filter.node_type as String
+        if not node.is_class(type_filter):
+            return
+    
+    # Фильтрация по имени (regex)
+    if filter.has("node_name"):
+        var name_filter := filter.node_name as String
+        var regex := RegEx.new()
+        regex.compile(name_filter)
+        if not regex.search(node.name):
+            return
+    
+    # Фильтрация по наличию скрипта
+    if filter.get("has_script", false):
+        if not node.get_script():
+            return
+    
+    # Создаём информацию об узле
+    var node_info := {
+        "path": str(node.get_path()),
+        "type": node.get_class(),
+        "name": node.name,
+        "children": []
+    }
+    
+    # Добавляем свойства если запрошено
+    if include_properties:
+        var properties := {}
+        for prop in node.get_property_list():
+            if prop.usage & PROPERTY_USAGE_EDITOR:
+                properties[prop.name] = node.get(prop.name)
+        node_info["properties"] = properties
+    
+    # Добавляем сигналы если запрошено
+    if include_signals:
+        var signals: Array[Dictionary] = []
+        for sig in node.get_signal_list():
+            var connections := node.get_signal_connection_list(sig.name)
+            if connections.size() > 0:
+                signals.append({
+                    "name": sig.name,
+                    "connections": connections
+                })
+        if signals.size() > 0:
+            node_info["signals"] = signals
+    
+    # Добавляем скрипт если есть
+    var script := node.get_script()
+    if script:
+        node_info["script"] = script.resource_path
+    
+    # Добавляем детей
+    for child in node.get_children():
+        node_info.children.append(str(child.get_path()))
+    
+    result.append(node_info)
+    total_count += 1
+    
+    # Рекурсивно обрабатываем детей
+    for child in node.get_children():
+        _dump_node_recursive(child, result, filter, include_properties, include_signals, current_depth + 1, total_count)
+
+# Захват скриншота
+func capture_screenshot(params: Dictionary) -> Dictionary:
+    var output_path := params.output_path as String
+    var delay := params.get("delay", 0.0) as float
+    
+    # Ждём если указана задержка
+    if delay > 0:
+        await get_tree().create_timer(delay).timeout
+    
+    # Получаем viewport
+    var viewport := get_viewport()
+    
+    # Изменяем размер если указано
+    if params.has("size"):
+        var size := params.size as Dictionary
+        viewport.size = Vector2i(size.width, size.height)
+    
+    # Захватываем изображение (Godot 4.5+)
+    var image := viewport.get_texture().get_image()
+    
+    # Сохраняем
+    var error := image.save_png(output_path)
+    
+    return {
+        "success": error == OK,
+        "output_path": output_path,
+        "size": {"width": image.get_width(), "height": image.get_height()}
+    }
+
+# Проверка отсутствующих ассетов
+func list_missing_assets(params: Dictionary) -> Dictionary:
+    var project_path := params.project_path as String
+    var check_types := params.get("check_types", ["texture", "audio", "script", "scene", "material", "mesh"]) as Array
+    
+    var missing: Array[Dictionary] = []
+    var checked_paths: Array[String] = []
+    
+    # Сканируем все .tscn и .tres файлы
+    var files := _scan_project_files(project_path, [".tscn", ".tres", ".gd"])
+    
+    for file_path in files:
+        checked_paths.append(file_path)
+        var file_content := FileAccess.get_file_as_string(file_path)
+        
+        # Ищем ссылки на ресурсы
+        var resource_refs := _extract_resource_references(file_content)
+        
+        for ref in resource_refs:
+            var resource_path := ref.path as String
+            var resource_type := ref.type as String
+            
+            # Проверяем тип
+            if not check_types.has(resource_type):
+                continue
+            
+            # Проверяем существование
+            if not FileAccess.file_exists(resource_path) and not ResourceLoader.exists(resource_path):
+                # Ищем существующую запись
+                var existing := missing.filter(func(item): return item.path == resource_path)
+                
+                if existing.is_empty():
+                    missing.append({
+                        "path": resource_path,
+                        "type": resource_type,
+                        "referenced_by": [file_path],
+                        "suggested_fixes": _generate_fix_suggestions(resource_path, resource_type)
+                    })
+                else:
+                    existing[0].referenced_by.append(file_path)
+    
+    return {
+        "success": true,
+        "missing": missing,
+        "total_missing": missing.size(),
+        "checked_paths": checked_paths,
+        "timestamp": Time.get_datetime_string_from_system()
+    }
+
+func _scan_project_files(project_path: String, extensions: Array) -> Array[String]:
+    var files: Array[String] = []
+    var dir := DirAccess.open(project_path)
+    
+    if not dir:
+        return files
+    
+    _scan_directory_recursive(dir, "", extensions, files)
+    return files
+
+func _scan_directory_recursive(dir: DirAccess, relative_path: String, extensions: Array, result: Array[String]) -> void:
+    dir.list_dir_begin()
+    var file_name := dir.get_next()
+    
+    while file_name != "":
+        if file_name.begins_with("."):
+            file_name = dir.get_next()
+            continue
+        
+        var full_path := relative_path + "/" + file_name if relative_path else file_name
+        
+        if dir.current_is_dir():
+            var sub_dir := DirAccess.open(dir.get_current_dir() + "/" + file_name)
+            if sub_dir:
+                _scan_directory_recursive(sub_dir, full_path, extensions, result)
+        else:
+            for ext in extensions:
+                if file_name.ends_with(ext):
+                    result.append(dir.get_current_dir() + "/" + file_name)
+                    break
+        
+        file_name = dir.get_next()
+    
+    dir.list_dir_end()
+
+func _extract_resource_references(content: String) -> Array[Dictionary]:
+    var refs: Array[Dictionary] = []
+    var regex := RegEx.new()
+    
+    # Паттерн для ExtResource и SubResource
+    regex.compile('ExtResource\\("([^"]+)"\\)|path="([^"]+)"|load\\("([^"]+)"\\)')
+    
+    for match in regex.search_all(content):
+        var path := ""
+        for i in range(1, match.get_group_count() + 1):
+            if match.get_string(i):
+                path = match.get_string(i)
+                break
+        
+        if path:
+            refs.append({
+                "path": path,
+                "type": _guess_resource_type(path)
+            })
+    
+    return refs
+
+func _guess_resource_type(path: String) -> String:
+    var ext := path.get_extension().to_lower()
+    
+    match ext:
+        "png", "jpg", "jpeg", "webp", "svg":
+            return "texture"
+        "wav", "ogg", "mp3":
+            return "audio"
+        "gd", "gdscript":
+            return "script"
+        "tscn", "scn":
+            return "scene"
+        "tres", "material", "mat":
+            return "material"
+        "obj", "fbx", "gltf", "glb", "dae":
+            return "mesh"
+        _:
+            return "unknown"
+
+func _generate_fix_suggestions(path: String, type: String) -> Array[String]:
+    var suggestions: Array[String] = []
+    
+    # Проверяем похожие файлы
+    var dir_path := path.get_base_dir()
+    var file_name := path.get_file()
+    
+    suggestions.append("Check if file exists at: " + path)
+    suggestions.append("Search for similar files in: " + dir_path)
+    
+    if type == "texture":
+        suggestions.append("Ensure texture is imported correctly")
+        suggestions.append("Check import settings in .import file")
+    elif type == "script":
+        suggestions.append("Verify script path is correct")
+        suggestions.append("Check if script was moved or renamed")
+    
+    return suggestions
+```
+
+#### TypeScript Implementation
+
+```typescript
+class DebugModule {
+  private godotPath: string;
+  private activeDebugSessions: Map<string, DebugSession> = new Map();
+  
+  // Запуск сцены через CLI
+  async runScene(params: RunSceneParams): Promise<SceneRunResult> {
+    const args = [
+      '--path', params.projectPath,
+      params.scenePath
+    ];
+    
+    if (params.debug) {
+      args.push('-d'); // Debug mode
+    }
+    
+    if (params.additionalArgs) {
+      args.push(...params.additionalArgs);
+    }
+    
+    try {
+      const { stdout, stderr, exitCode } = await this.executeGodot(args);
+      
+      const output = stdout.split('\n');
+      const errors = this.parseErrors(stderr);
+      
+      return {
+        success: exitCode === 0,
+        output,
+        errors,
+        exitCode
+      };
+    } catch (error) {
+      return {
+        success: false,
+        output: [],
+        errors: [{
+          message: error.message,
+          stack: [],
+          script: '',
+          line: 0
+        }],
+        exitCode: -1
+      };
+    }
+  }
+  
+  // Захват видео через Movie Maker
+  async captureMovie(params: CaptureMovieParams): Promise<OperationResult> {
+    // Godot 4.5+ Movie Maker использует CLI аргументы
+    const args = [
+      '--path', params.projectPath,
+      '--write-movie', params.outputPath,
+      params.scenePath
+    ];
+    
+    // Настройки Movie Maker
+    if (params.settings.fps) {
+      args.push('--fixed-fps', params.settings.fps.toString());
+    }
+    
+    if (params.settings.duration) {
+      args.push('--quit-after', params.settings.duration.toString());
+    }
+    
+    try {
+      await this.executeGodot(args);
+      
+      return {
+        success: true,
+        message: `Movie captured to ${params.outputPath}`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to capture movie: ${error.message}`
+      };
+    }
+  }
+  
+  private parseErrors(stderr: string): ErrorInfo[] {
+    const errors: ErrorInfo[] = [];
+    const lines = stderr.split('\n');
+    
+    for (const line of lines) {
+      // Парсинг ошибок Godot формата:
+      // ERROR: <message>
+      //    at: <function> (<script>:<line>)
+      if (line.startsWith('ERROR:')) {
+        const message = line.substring(7).trim();
+        errors.push({
+          message,
+          stack: [],
+          script: '',
+          line: 0
+        });
+      }
+    }
+    
+    return errors;
+  }
+  
+  private async executeGodot(args: string[]): Promise<{stdout: string, stderr: string, exitCode: number}> {
+    return new Promise((resolve, reject) => {
+      const process = spawn(this.godotPath, args);
+      
+      let stdout = '';
+      let stderr = '';
+      
+      process.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+      
+      process.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      process.on('close', (code) => {
+        resolve({ stdout, stderr, exitCode: code || 0 });
+      });
+      
+      process.on('error', (error) => {
+        reject(error);
+      });
+    });
+  }
 }
 ```
 

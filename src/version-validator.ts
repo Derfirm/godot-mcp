@@ -39,9 +39,12 @@ export class VersionValidator {
       return null;
     }
 
-    // Godot version format: "4.5.0.stable.official" or "4.5.0-stable"
+    // Godot version format can be:
+    // - "4.5.0.stable.official" (with patch)
+    // - "4.5.stable.official" (without patch - defaults to 0)
+    // - "4.5.0-stable" (with dash separator)
     // Extract the numeric version part
-    const versionMatch = versionString.match(/^(\d+)\.(\d+)\.(\d+)/);
+    const versionMatch = versionString.match(/^(\d+)\.(\d+)(?:\.(\d+))?/);
     
     if (!versionMatch) {
       return null;
@@ -49,7 +52,7 @@ export class VersionValidator {
 
     const major = parseInt(versionMatch[1], 10);
     const minor = parseInt(versionMatch[2], 10);
-    const patch = parseInt(versionMatch[3], 10);
+    const patch = versionMatch[3] ? parseInt(versionMatch[3], 10) : 0; // Default to 0 if not present
 
     // Extract status (stable, beta, rc, etc.)
     const statusMatch = versionString.match(/\.(stable|beta|rc\d+|alpha|dev)/i);
