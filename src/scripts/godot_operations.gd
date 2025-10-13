@@ -136,7 +136,10 @@ func _init():
         "manage_plugins":
             manage_plugins(params)
         "capture_screenshot":
-            capture_screenshot(params)
+            # Async operation - needs to wait for frames
+            await capture_screenshot(params)
+            quit()
+            return
         "list_missing_assets":
             list_missing_assets(params)
         "remote_tree_dump":
@@ -5586,32 +5589,55 @@ func capture_screenshot(params):
     var output_path = params.output_path as String
     var delay = params.get("delay", 0.0) as float
     
-    if debug_mode:
-        print("Output path: " + output_path)
-        print("Delay: " + str(delay))
+    print("Output path (from params): " + output_path)
+    print("Delay: " + str(delay))
+    
+    # Check if scene_path is provided
+    if not params.has("scene_path"):
+        print("WARNING: No scene_path provided - screenshot will be of empty viewport (gray screen)")
+        print("Tip: Add 'scene_path' parameter to capture a specific scene")
+    
+    # Show project path info
+    var project_res_path = ProjectSettings.globalize_path("res://")
+    print("Project res:// path: " + project_res_path)
     
     # Normalize the output path
     var full_output_path = output_path
     if not full_output_path.begins_with("res://") and not full_output_path.is_absolute_path():
         full_output_path = "res://" + full_output_path
-    if debug_mode:
-        print("Full output path: " + full_output_path)
+        print("Added res:// prefix to relative path")
+    
+    print("Full output path: " + full_output_path)
     
     # Convert to absolute path for saving
     var absolute_output_path = ProjectSettings.globalize_path(full_output_path)
-    if debug_mode:
-        print("Absolute output path: " + absolute_output_path)
+    print("Absolute output path: " + absolute_output_path)
     
     # Ensure output directory exists
     var output_dir = absolute_output_path.get_base_dir()
+    if debug_mode:
+        print("Output directory: " + output_dir)
+        print("Directory exists: " + str(DirAccess.dir_exists_absolute(output_dir)))
+    
     if not DirAccess.dir_exists_absolute(output_dir):
-        if debug_mode:
-            print("Creating output directory: " + output_dir)
+        print("Creating output directory: " + output_dir)
         var make_dir_error = DirAccess.make_dir_recursive_absolute(output_dir)
         if make_dir_error != OK:
-            printerr("Failed to create output directory: " + str(make_dir_error))
-            print(JSON.stringify({"success": false, "error": "Failed to create output directory"}))
+            printerr("Failed to create output directory: " + output_dir)
+            printerr("Error code: " + str(make_dir_error))
+            print(JSON.stringify({"success": false, "error": "Failed to create output directory: " + str(make_dir_error)}))
             quit(1)
+        
+        # Verify directory was created
+        if not DirAccess.dir_exists_absolute(output_dir):
+            printerr("Directory creation reported success but directory does not exist: " + output_dir)
+            print(JSON.stringify({"success": false, "error": "Directory creation failed verification"}))
+            quit(1)
+        
+        print("Output directory created successfully: " + output_dir)
+    else:
+        if debug_mode:
+            print("Output directory already exists")
     
     # If scenePath is provided, we need to load and run the scene
     if params.has("scene_path"):
@@ -5643,21 +5669,47 @@ func capture_screenshot(params):
         # Add scene to the tree
         root.add_child(scene_root)
         
-        if debug_mode:
-            print("Scene loaded and added to tree")
+        print("Scene loaded and added to tree")
+        
+        # Wait for scene to initialize (call _ready, etc.)
+        await process_frame
+        await process_frame
+        
+        # Find and enable camera if present
+        var camera = scene_root.find_child("Camera2D", true, false)
+        if not camera:
+            camera = scene_root.find_child("Camera3D", true, false)
+        
+        if camera:
+            camera.enabled = true
+            camera.make_current()
+            print("Camera found and enabled: " + camera.name)
+        else:
+            print("No camera found in scene")
+        
+        print("Scene initialized")
     
     # Wait for delay if specified
     if delay > 0:
-        if debug_mode:
-            print("Waiting for " + str(delay) + " seconds...")
-        await get_tree().create_timer(delay).timeout
+        print("Waiting for " + str(delay) + " seconds...")
+        await create_timer(delay).timeout
+    else:
+        # Even without delay, wait a bit for rendering
+        await process_frame
+        await process_frame
     
-    # Get the viewport
-    var viewport = root.get_viewport()
+    # Get the viewport (root is Window which is a Viewport)
+    var viewport = root as Viewport
     if not viewport:
         printerr("Failed to get viewport")
         print(JSON.stringify({"success": false, "error": "Failed to get viewport"}))
         quit(1)
+    
+    print("Viewport obtained: " + str(viewport.get_class()))
+    
+    # Wait for at least one frame to render
+    await process_frame
+    await process_frame  # Wait two frames to ensure rendering is complete
     
     # Change viewport size if specified
     if params.has("size"):
@@ -5669,7 +5721,7 @@ func capture_screenshot(params):
                 print("Viewport size set to: " + str(new_size))
             
             # Wait a frame for the viewport to update
-            await get_tree().process_frame
+            await process_frame
     
     # Capture the image from viewport
     var image = viewport.get_texture().get_image()
@@ -6140,7 +6192,12 @@ func toggle_debug_draw(params):
         print("Viewport path: " + viewport_path)
     
     # Get the viewport
-    var viewport: Viewport = get_node(viewport_path)
+    var viewport: Viewport = null
+    if viewport_path == "/root":
+        viewport = root.get_viewport()
+    else:
+        viewport = root.get_node(viewport_path)
+    
     if not viewport:
         printerr("Viewport not found: " + viewport_path)
         quit(1)

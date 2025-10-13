@@ -784,10 +784,15 @@ class GodotServer {
       // Add debug arguments if debug mode is enabled
       const debugArgs = GODOT_DEBUG_MODE ? ['--debug-godot'] : [];
 
+      // For capture_screenshot, we need rendering (viewport), so don't use --headless
+      // The script will quit automatically after capturing
+      const needsRendering = operation === 'capture_screenshot';
+      const headlessFlag = needsRendering ? [] : ['--headless'];
+
       // Construct the command with the operation and JSON parameters
       const cmd = [
         `"${this.godotPath}"`,
-        '--headless',
+        ...headlessFlag,
         '--path',
         `"${projectPath}"`,
         '--script',
@@ -2532,7 +2537,7 @@ class GodotServer {
         },
         {
           name: 'capture_screenshot',
-          description: 'Capture a screenshot from a running Godot scene using Viewport.get_texture()',
+          description: 'Capture a screenshot from a running Godot scene using Viewport.get_texture(). Note: Without scenePath, captures empty viewport (gray screen).',
           inputSchema: {
             type: 'object',
             properties: {
@@ -2546,7 +2551,7 @@ class GodotServer {
               },
               scenePath: {
                 type: 'string',
-                description: 'Optional: Path to the scene to run and capture (relative to project)',
+                description: 'Path to the scene to capture (relative to project). Recommended to avoid empty screenshots.',
               },
               delay: {
                 type: 'number',
@@ -7059,9 +7064,16 @@ class GodotServer {
       }
 
       this.logDebug(`Capturing screenshot for project: ${args.projectPath}`);
+      console.log(`[SCREENSHOT] Starting capture for: ${args.projectPath}`);
+      console.log(`[SCREENSHOT] Output path: ${args.outputPath}`);
+      console.log(`[SCREENSHOT] Scene path: ${args.scenePath || 'none'}`);
 
       // Execute the capture_screenshot operation
       const result = await this.executeOperation('capture_screenshot', args, args.projectPath);
+
+      console.log(`[SCREENSHOT] Operation completed`);
+      console.log(`[SCREENSHOT] STDOUT:\n${result.stdout}`);
+      console.log(`[SCREENSHOT] STDERR:\n${result.stderr}`);
 
       // Parse the result
       const lines = result.stdout.split('\n').filter(line => line.trim());
@@ -7081,12 +7093,20 @@ class GodotServer {
           }
           if (args.scenePath) {
             response += `**Scene:** ${args.scenePath}\n`;
+          } else {
+            response += `**Scene:** None (empty viewport)\n`;
+            response += `⚠️ **Warning:** No scene was specified, screenshot shows empty gray viewport.\n`;
           }
           if (args.delay) {
             response += `**Delay:** ${args.delay} seconds\n`;
           }
           response += '\n';
           response += `The screenshot has been saved successfully.\n`;
+          
+          // Add full output log for debugging
+          response += '\n## Operation Log\n\n```\n';
+          response += result.stdout;
+          response += '\n```\n';
 
           return {
             content: [
