@@ -462,12 +462,23 @@ The server automatically generates and caches Godot documentation using the `--d
 If you want to pre-generate documentation or clear the cache:
 
 ```bash
-# Generate documentation for all Godot classes
-godot --doctool .godot-docs-cache/doctool --no-docbase
+# Create cache directory
+mkdir -p .godot-docs-cache/doctool
 
-# Or with custom Godot path
-/path/to/Godot.app/Contents/MacOS/Godot --doctool .godot-docs-cache/doctool --no-docbase
+# Generate documentation for all Godot classes
+godot --doctool .godot-docs-cache/doctool --no-docbase --headless --quit
+
+# Or with custom Godot path (macOS example)
+/Applications/Godot.app/Contents/MacOS/Godot --doctool .godot-docs-cache/doctool --no-docbase --headless --quit
+
+# Windows example
+"C:\Program Files\Godot\Godot.exe" --doctool .godot-docs-cache/doctool --no-docbase --headless --quit
+
+# Linux example
+/usr/bin/godot --doctool .godot-docs-cache/doctool --no-docbase --headless --quit
 ```
+
+**Note**: The `--headless` and `--quit` flags ensure Godot runs without a GUI and exits after generating documentation.
 
 ### Documentation Cache
 
