@@ -453,6 +453,48 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 
 See [.kiro/specs/godot-game-assistant/tasks.md](.kiro/specs/godot-game-assistant/tasks.md) for detailed implementation plan.
 
+## Documentation Generation
+
+The server automatically generates and caches Godot documentation using the `--doctool` flag. This happens transparently when you use documentation-related tools.
+
+### Manual Documentation Generation
+
+If you want to pre-generate documentation or clear the cache:
+
+```bash
+# Generate documentation for all Godot classes
+godot --doctool .godot-docs-cache/doctool --no-docbase
+
+# Or with custom Godot path
+/path/to/Godot.app/Contents/MacOS/Godot --doctool .godot-docs-cache/doctool --no-docbase
+```
+
+### Documentation Cache
+
+- **Location**: `.godot-docs-cache/` in the project root
+- **Contents**: 
+  - `doctool/` - Raw XML documentation from Godot
+  - `*.json` - Parsed and cached class information
+- **Size**: Typically 10-50 MB depending on usage
+- **Clearing**: Delete the `.godot-docs-cache/` directory to regenerate
+
+### Using Documentation Tools
+
+```text
+"Show me documentation for CharacterBody2D"
+"Search the docs for move_and_slide"
+"What are the best practices for physics in Godot?"
+"Get method info for Node2D.rotate"
+```
+
+The documentation module supports:
+- Class information with inheritance hierarchy
+- Method signatures with parameters and return types
+- Property descriptions with default values
+- Signal definitions with parameters
+- Constants and enums
+- Best practices for common topics
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

@@ -26,3 +26,15 @@ Thumbs.db
 
 # Coverage directory
 coverage/
+
+# Godot documentation cache
+.godot-docs-cache/
+
+# Test projects
+test-project/
+test_project/
+fixtures/
+
+# Temporary files
+*.tmp
+*.temp
