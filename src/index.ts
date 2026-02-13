@@ -287,7 +287,7 @@ class GodotServer {
 
     // Set the path to the operations script
     this.operationsScriptPath = join(__dirname, 'scripts', 'godot_operations.gd');
-    if (debugMode) console.debug(`[DEBUG] Operations script path: ${this.operationsScriptPath}`);
+    if (debugMode) console.error(`[DEBUG] Operations script path: ${this.operationsScriptPath}`);
 
     // Initialize the MCP server
     this.server = new Server(
@@ -320,7 +320,7 @@ class GodotServer {
    */
   private logDebug(message: string): void {
     if (DEBUG_MODE) {
-      console.debug(`[DEBUG] ${message}`);
+      console.error(`[DEBUG] ${message}`);
     }
   }
 
@@ -612,7 +612,7 @@ class GodotServer {
         this.logDebug(`  - Modern Node Types: ${features.modernNodeTypes}`);
       }
 
-      console.log(`[SERVER] ${validationResult.message}`);
+      console.error(`[SERVER] ${validationResult.message}`);
       return this.godotVersion!;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -7064,16 +7064,16 @@ class GodotServer {
       }
 
       this.logDebug(`Capturing screenshot for project: ${args.projectPath}`);
-      console.log(`[SCREENSHOT] Starting capture for: ${args.projectPath}`);
-      console.log(`[SCREENSHOT] Output path: ${args.outputPath}`);
-      console.log(`[SCREENSHOT] Scene path: ${args.scenePath || 'none'}`);
+      console.error(`[SCREENSHOT] Starting capture for: ${args.projectPath}`);
+      console.error(`[SCREENSHOT] Output path: ${args.outputPath}`);
+      console.error(`[SCREENSHOT] Scene path: ${args.scenePath || 'none'}`);
 
       // Execute the capture_screenshot operation
       const result = await this.executeOperation('capture_screenshot', args, args.projectPath);
 
-      console.log(`[SCREENSHOT] Operation completed`);
-      console.log(`[SCREENSHOT] STDOUT:\n${result.stdout}`);
-      console.log(`[SCREENSHOT] STDERR:\n${result.stderr}`);
+      console.error(`[SCREENSHOT] Operation completed`);
+      console.error(`[SCREENSHOT] STDOUT:\n${result.stdout}`);
+      console.error(`[SCREENSHOT] STDERR:\n${result.stderr}`);
 
       // Parse the result
       const lines = result.stdout.split('\n').filter(line => line.trim());
@@ -8514,7 +8514,7 @@ class GodotServer {
         }
       }
 
-      console.log(`[SERVER] Using Godot at: ${this.godotPath}`);
+      console.error(`[SERVER] Using Godot at: ${this.godotPath}`);
 
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
