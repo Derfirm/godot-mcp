@@ -1578,7 +1578,7 @@ class GodotServer {
         },
         {
           name: 'create_resource',
-          description: 'Create a new resource (Material, Shader, etc.) in the Godot project',
+          description: 'Create a new resource in the Godot project. Supports built-in types (StandardMaterial3D, ShaderMaterial, Shader, Theme, Environment, PhysicsMaterial) as well as custom resource types defined by scripts with a class_name. For custom types not registered via class_name, provide the scriptPath to the defining .gd file.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -1592,12 +1592,15 @@ class GodotServer {
               },
               resourceType: {
                 type: 'string',
-                enum: ['StandardMaterial3D', 'ShaderMaterial', 'Shader', 'Theme', 'Environment', 'PhysicsMaterial'],
-                description: 'Type of resource to create',
+                description: 'Type of resource to create. Use a built-in type name (e.g. "StandardMaterial3D") or a custom class name registered with class_name in a GDScript file.',
+              },
+              scriptPath: {
+                type: 'string',
+                description: 'Optional path to the GDScript file that defines the custom resource class (relative to project, e.g. "res://resources/MyData.gd"). Required when resourceType is a custom class not registered via class_name.',
               },
               properties: {
                 type: 'object',
-                description: 'Optional properties to set on the resource',
+                description: 'Optional properties to set on the resource. Primitive values (int, float, bool, String, Color) are set directly. To reference an existing resource file use a "res://" string (e.g. "res://sounds/step.ogg"). To create an inline subresource use an object with a "_type" key (e.g. {"_type": "AudioStreamWAV"}) — all other keys in that object become properties of the subresource. Use "_script" inside a subresource object to point to a GDScript file when the class is not registered via class_name. Arrays of any of the above are also supported.',
               },
             },
             required: ['projectPath', 'resourcePath', 'resourceType'],

@@ -2402,15 +2402,16 @@ func get_import_extension(asset_type: String) -> String:
 
 # Helper function to get or create UID for a resource (Godot 4.5+)
 func get_or_create_uid(resource_path: String) -> String:
-    # Check if resource already has a UID
-    var uid = ResourceUID.text_to_id(resource_path)
+    # ResourceLoader.get_resource_uid() reads the .uid sidecar file on disk,
+    # which is the correct way to look up a path → UID mapping.
+    # ResourceUID.text_to_id() takes a "uid://..." string, NOT a res:// path.
+    var uid: int = ResourceLoader.get_resource_uid(resource_path)
     if uid != ResourceUID.INVALID_ID:
         return ResourceUID.id_to_text(uid)
-    
-    # Create a new UID
+
+    # No sidecar file yet — create and register a new UID
     uid = ResourceUID.create_id()
     ResourceUID.add_id(uid, resource_path)
-    
     return ResourceUID.id_to_text(uid)
 
 # Apply texture-specific import settings
@@ -2530,14 +2531,16 @@ func create_resource(params):
         "PhysicsMaterial":
             resource = create_physics_material(params)
         _:
-            printerr("Unsupported resource type: " + resource_type)
-            quit(1)
+            resource = create_custom_resource(params)
     
     if not resource:
         printerr("Failed to create resource of type: " + resource_type)
         quit(1)
+        return
     
-    # Apply custom properties if provided
+    # Apply custom properties if provided, keeping track of resolved values
+    # for post-processing after save.
+    var applied_properties: Dictionary = {}
     if params.has("properties"):
         var properties = params.properties
         if debug_mode:
@@ -2545,12 +2548,20 @@ func create_resource(params):
         
         for property in properties:
             if property in resource:
-                resource.set(property, properties[property])
+                var resolved = resolve_property_value(properties[property])
+                if resolved is Array:
+                    resolved = coerce_array_type(resource, property, resolved)
+                resource.set(property, resolved)
+                applied_properties[property] = resolved
                 if debug_mode:
-                    print("Set property: " + property + " = " + str(properties[property]))
+                    print("Set property: " + property + " = " + str(resolved))
             else:
                 push_warning("Property not found on resource: " + property)
     
+    # Set the resource's own path before saving so ResourceSaver can compute
+    # correct relative paths for any external sub-resource references (e.g. AudioStream).
+    resource.resource_path = resource_path
+
     # Save the resource
     var save_error = ResourceSaver.save(resource, resource_path)
     if save_error != OK:
@@ -2559,6 +2570,13 @@ func create_resource(params):
     
     if debug_mode:
         print("Resource saved successfully")
+
+    # Post-process: ResourceFormatSaverText's scan pass doesn't recurse into
+    # arrays of script-defined types, silently dropping those properties.
+    # Patch the .tres text directly to inject missing ext_resource entries
+    # and property lines.
+    if not applied_properties.is_empty():
+        post_process_tres(resource_path, resource, applied_properties)
     
     # Get UID for the resource (Godot 4.5+)
     var uid = get_or_create_uid(resource_path)
@@ -2695,6 +2713,496 @@ func create_physics_material(params) -> PhysicsMaterial:
         print("Created PhysicsMaterial with default Godot 4.5+ properties")
     
     return physics_material
+
+# Instantiate a custom resource type defined by a GDScript with class_name, or loaded from scriptPath
+func create_custom_resource(params) -> Resource:
+    var resource_type = params.resource_type
+
+    # Strategy 1: explicit script path provided — load the script and instantiate it
+    if params.has("script_path") and not params.script_path.is_empty():
+        var script_path = params.script_path
+        if not script_path.begins_with("res://"):
+            script_path = "res://" + script_path
+        if not ResourceLoader.exists(script_path):
+            printerr("Script not found at path: " + script_path)
+            quit(1)
+        var script = load(script_path)
+        if not script or not script is GDScript:
+            printerr("Failed to load GDScript from: " + script_path)
+            quit(1)
+        var instance = script.new()
+        if not instance is Resource:
+            printerr("Script at " + script_path + " does not extend Resource")
+            quit(1)
+        if debug_mode:
+            print("Created custom resource via script path: " + script_path)
+        return instance as Resource
+
+    # Strategy 2: class_name registered in ClassDB (covers scripts that use class_name)
+    if ClassDB.class_exists(resource_type):
+        if not ClassDB.is_parent_class(resource_type, "Resource"):
+            printerr("Class '" + resource_type + "' does not extend Resource")
+            quit(1)
+            return null
+        var instance = ClassDB.instantiate(resource_type)
+        if not instance:
+            printerr("ClassDB.instantiate failed for type: " + resource_type)
+            quit(1)
+            return null
+        if debug_mode:
+            print("Created custom resource via ClassDB: " + resource_type)
+        return instance as Resource
+
+    # Strategy 3: scan project .gd files for a script declaring this class_name.
+    # ClassDB may not register user scripts in headless --script mode even with --path.
+    if debug_mode:
+        print("ClassDB miss for '" + resource_type + "', scanning project scripts...")
+    var found_script_path = find_script_by_class_name(resource_type)
+    if not found_script_path.is_empty():
+        if debug_mode:
+            print("Found script at: " + found_script_path)
+        var script = load(found_script_path)
+        if not script or not script is GDScript:
+            printerr("Failed to load GDScript from: " + found_script_path)
+            quit(1)
+            return null
+        var instance = script.new()
+        if not instance is Resource:
+            printerr("Script at " + found_script_path + " does not extend Resource")
+            quit(1)
+            return null
+        if debug_mode:
+            print("Created custom resource via scanned script: " + found_script_path)
+        return instance as Resource
+
+    printerr("Unknown resource type '" + resource_type + "'. " +
+        "For custom types, either register the class with 'class_name' in GDScript or provide 'scriptPath'.")
+    quit(1)
+    return null
+
+# Recursively search res:// for a .gd file that declares the given class_name
+func find_script_by_class_name(target_class_name: String) -> String:
+    return _scan_dir_for_class_name("res://", target_class_name)
+
+func _scan_dir_for_class_name(dir_path: String, target_class_name: String) -> String:
+    var dir = DirAccess.open(dir_path)
+    if not dir:
+        return ""
+    dir.list_dir_begin()
+    var entry = dir.get_next()
+    while entry != "":
+        if entry != "." and entry != "..":
+            var full_path = dir_path.path_join(entry)
+            if dir.current_is_dir():
+                # Skip hidden directories (e.g. .godot cache) to avoid false matches
+                if not entry.begins_with("."):
+                    var result = _scan_dir_for_class_name(full_path, target_class_name)
+                    if not result.is_empty():
+                        return result
+            elif entry.ends_with(".gd"):
+                var file = FileAccess.open(full_path, FileAccess.READ)
+                if file:
+                    var content = file.get_as_text()
+                    file.close()
+                    # Match "class_name TargetClass" followed by whitespace or end-of-line
+                    if content.contains("class_name " + target_class_name):
+                        return full_path
+        entry = dir.get_next()
+    return ""
+
+# Build an [ext_resource ...] header line, omitting uid= when none exists on disk.
+# Generating a phantom UID (via ResourceUID.create_id without a persisted .uid sidecar)
+# causes Godot to emit warnings and fail to resolve the reference. Path-only entries
+# work fine and produce no warnings.
+func ext_resource_line(type: String, path: String, id: String) -> String:
+    var uid_int: int = ResourceLoader.get_resource_uid(path)
+    if uid_int != ResourceUID.INVALID_ID:
+        return "[ext_resource type=\"%s\" uid=\"%s\" path=\"%s\" id=\"%s\"]" \
+            % [type, ResourceUID.id_to_text(uid_int), path, id]
+    return "[ext_resource type=\"%s\" path=\"%s\" id=\"%s\"]" % [type, path, id]
+
+# Post-process a saved .tres file to inject external resource references that
+# ResourceFormatSaverText's scan pass missed (arrays of script-defined types).
+#
+# Godot's .tres format requires this ordering in the [resource] block:
+#   script = ExtResource("N_mainscript")           ← MUST be first
+#   metadata/_custom_type_script = "uid://..."     ← second
+#   my_array = Array[ExtResource("N_elemscript")]([ExtResource("N_elem"), ...])
+#
+# Godot resolves the resource's class from `script` before deserialising any
+# typed array properties; wrong ordering causes typed arrays to load empty.
+func post_process_tres(resource_path: String, resource: Resource, applied_properties: Dictionary):
+    var abs_path = ProjectSettings.globalize_path(resource_path)
+    var file = FileAccess.open(abs_path, FileAccess.READ)
+    if not file:
+        if debug_mode:
+            print("post_process_tres: could not open " + abs_path)
+        return
+    var content: String = file.get_as_text()
+    file.close()
+
+    var lines: PackedStringArray = content.split("\n")
+
+    # --- Parse existing file structure ---
+    # path -> id for all already-present ext_resource entries
+    var path_to_id: Dictionary = {}
+    var existing_ids: Dictionary = {}
+    var id_counter: int = 1
+    var last_ext_resource_line: int = -1
+    var resource_section_line: int = -1
+
+    for i in range(lines.size()):
+        var line: String = lines[i]
+        if line.begins_with("[ext_resource"):
+            last_ext_resource_line = i
+            var id_start: int = line.find("id=\"")
+            var path_start: int = line.find("path=\"")
+            if id_start >= 0 and path_start >= 0:
+                var id_end: int = line.find("\"", id_start + 4)
+                var path_end: int = line.find("\"", path_start + 6)
+                if id_end >= 0 and path_end >= 0:
+                    var id_str: String = line.substr(id_start + 4, id_end - id_start - 4)
+                    var path_str: String = line.substr(path_start + 6, path_end - path_start - 6)
+                    existing_ids[id_str] = true
+                    path_to_id[path_str] = id_str
+                    var num_part: String = id_str.split("_")[0]
+                    if num_part.is_valid_int():
+                        id_counter = max(id_counter, int(num_part) + 1)
+        elif line.begins_with("[resource]"):
+            resource_section_line = i
+
+    if resource_section_line < 0:
+        if debug_mode:
+            print("post_process_tres: could not find [resource] section")
+        return
+
+    # --- Identify missing array properties ---
+    var missing_props: Dictionary = {}  # prop_name -> Array
+    for prop_name in applied_properties:
+        var val = applied_properties[prop_name]
+        if not val is Array:
+            continue
+        var has_resources := false
+        for elem in val:
+            if elem is Resource and not elem.resource_path.is_empty():
+                has_resources = true
+                break
+        if not has_resources:
+            continue
+        if not content.contains(prop_name + " = "):
+            missing_props[prop_name] = val
+            if debug_mode:
+                print("post_process_tres: property '%s' missing, will inject" % prop_name)
+
+    # --- Check what the main resource's script needs ---
+    var main_script = resource.get_script()
+    var needs_script_ref: bool = false      # inject `script = ExtResource(...)`
+    var needs_custom_type_meta: bool = false  # inject metadata/_custom_type_script
+    var custom_type_uid: String = ""
+    var main_script_ext_id: String = ""
+
+    if main_script and not main_script.resource_path.is_empty():
+        needs_script_ref = not content.contains("script = ExtResource(")
+        if not content.contains("metadata/_custom_type_script"):
+            var uid_int: int = ResourceLoader.get_resource_uid(main_script.resource_path)
+            if uid_int != ResourceUID.INVALID_ID:
+                needs_custom_type_meta = true
+                custom_type_uid = ResourceUID.id_to_text(uid_int)
+
+    if missing_props.is_empty() and not needs_script_ref and not needs_custom_type_meta:
+        return
+
+    # --- Build new ext_resource lines and property lines ---
+    var new_ext_lines: PackedStringArray = PackedStringArray()
+    # new_resource_lines is ordered: script first, then metadata, then array props
+    var new_resource_lines: PackedStringArray = PackedStringArray()
+
+    # Register the main resource's script as an ext_resource and inject `script = ...`
+    # MUST be the first property in [resource] so Godot knows the class before
+    # deserialising any typed array properties that depend on it.
+    if needs_script_ref:
+        var script_path: String = main_script.resource_path
+        if path_to_id.has(script_path):
+            main_script_ext_id = path_to_id[script_path]
+        else:
+            var basename: String = script_path.get_file().get_basename().to_lower()
+            main_script_ext_id = "%d_%s" % [id_counter, basename]
+            while existing_ids.has(main_script_ext_id):
+                id_counter += 1
+                main_script_ext_id = "%d_%s" % [id_counter, basename]
+            id_counter += 1
+            existing_ids[main_script_ext_id] = true
+            path_to_id[script_path] = main_script_ext_id
+            new_ext_lines.append(ext_resource_line("Script", script_path, main_script_ext_id))
+        new_resource_lines.append("script = ExtResource(\"%s\")" % main_script_ext_id)
+
+    if needs_custom_type_meta:
+        new_resource_lines.append("metadata/_custom_type_script = \"%s\"" % custom_type_uid)
+
+    for prop_name in missing_props:
+        var arr: Array = missing_props[prop_name]
+
+        # Determine the declared element class from the property hint
+        var array_type_hint: String = ""
+        for prop_info in resource.get_property_list():
+            if prop_info["name"] == prop_name and prop_info["type"] == TYPE_ARRAY:
+                var hs: String = prop_info.get("hint_string", "")
+                var colon: int = hs.rfind(":")
+                if colon >= 0:
+                    array_type_hint = hs.substr(colon + 1).strip_edges()
+                break
+
+        # For script-defined element types, register the script as an ext_resource
+        # and use ExtResource("id") as the array type token instead of the class name.
+        var array_type_token: String = array_type_hint
+        if not array_type_hint.is_empty() and not ClassDB.class_exists(array_type_hint):
+            var elem_script_path: String = find_script_by_class_name(array_type_hint)
+            if not elem_script_path.is_empty():
+                var script_id: String
+                if path_to_id.has(elem_script_path):
+                    script_id = path_to_id[elem_script_path]
+                else:
+                    script_id = "%d_%s" % [id_counter, array_type_hint.to_lower()]
+                    while existing_ids.has(script_id):
+                        id_counter += 1
+                        script_id = "%d_%s" % [id_counter, array_type_hint.to_lower()]
+                    id_counter += 1
+                    existing_ids[script_id] = true
+                    path_to_id[elem_script_path] = script_id
+                    new_ext_lines.append(ext_resource_line("Script", elem_script_path, script_id))
+                array_type_token = "ExtResource(\"%s\")" % script_id
+
+        # Register each Resource element as an ext_resource
+        var ext_refs: PackedStringArray = PackedStringArray()
+        for elem in arr:
+            if not elem is Resource or elem.resource_path.is_empty():
+                continue
+            var elem_id: String
+            if path_to_id.has(elem.resource_path):
+                elem_id = path_to_id[elem.resource_path]
+            else:
+                var basename: String = elem.resource_path.get_file().get_basename().to_lower()
+                elem_id = "%d_%s" % [id_counter, basename]
+                while existing_ids.has(elem_id):
+                    id_counter += 1
+                    elem_id = "%d_%s" % [id_counter, basename]
+                id_counter += 1
+                existing_ids[elem_id] = true
+                path_to_id[elem.resource_path] = elem_id
+                # Script-defined resources use type="Resource"; built-ins use their class name
+                var elem_type: String = "Resource" if elem.get_script() else elem.get_class()
+                new_ext_lines.append(ext_resource_line(elem_type, elem.resource_path, elem_id))
+            ext_refs.append("ExtResource(\"%s\")" % elem_id)
+
+        if ext_refs.size() > 0:
+            var prop_value: String
+            if not array_type_token.is_empty():
+                prop_value = "Array[%s]([%s])" % [array_type_token, ", ".join(ext_refs)]
+            else:
+                prop_value = "[%s]" % ", ".join(ext_refs)
+            new_resource_lines.append("%s = %s" % [prop_name, prop_value])
+
+    if new_ext_lines.is_empty() and new_resource_lines.is_empty():
+        return
+
+    # --- Find where to insert in the [resource] section ---
+    # Properties MUST be ordered: script first, then everything else.
+    # When `script =` was already written by ResourceSaver, inject our lines
+    # immediately after it. When we are injecting `script =` ourselves
+    # (needs_script_ref=true), inject everything right after `[resource]`
+    # since new_resource_lines already starts with `script =`.
+    var inject_after_line: int = resource_section_line  # default: right after [resource]
+    if not needs_script_ref:
+        # script = already present somewhere in the [resource] block — find it
+        for i in range(resource_section_line + 1, lines.size()):
+            if lines[i].begins_with("["):
+                break  # left the [resource] section
+            if lines[i].begins_with("script = "):
+                inject_after_line = i
+                break
+
+    # --- Rebuild file ---
+    var result_lines: PackedStringArray = PackedStringArray()
+    var ext_injected: bool = false
+    var res_injected: bool = false
+
+    for i in range(lines.size()):
+        result_lines.append(lines[i])
+        # Inject new ext_resource lines right after the last existing one
+        if not ext_injected and i == last_ext_resource_line:
+            for ext_line in new_ext_lines:
+                result_lines.append(ext_line)
+            ext_injected = true
+        # Inject [resource] properties after the chosen anchor line
+        if not res_injected and i == inject_after_line:
+            for res_line in new_resource_lines:
+                result_lines.append(res_line)
+            res_injected = true
+
+    # If there were no existing ext_resource lines, insert before [resource]
+    if not ext_injected and not new_ext_lines.is_empty():
+        var patched: PackedStringArray = PackedStringArray()
+        for i in range(result_lines.size()):
+            if result_lines[i].begins_with("[resource]"):
+                for ext_line in new_ext_lines:
+                    patched.append(ext_line)
+                patched.append("")
+            patched.append(result_lines[i])
+        result_lines = patched
+
+    # Update load_steps count in the file header
+    var new_content: String = "\n".join(result_lines)
+    var load_steps_regex := RegEx.new()
+    load_steps_regex.compile("load_steps=(\\d+)")
+    var m = load_steps_regex.search(new_content)
+    if m:
+        var old_steps: int = int(m.get_string(1))
+        var new_steps: int = old_steps + new_ext_lines.size()
+        new_content = new_content.replace(
+            "load_steps=%d" % old_steps,
+            "load_steps=%d" % new_steps
+        )
+
+    var out_file = FileAccess.open(abs_path, FileAccess.WRITE)
+    if out_file:
+        out_file.store_string(new_content)
+        out_file.close()
+        if debug_mode:
+            print("post_process_tres: injected %d ext_resource(s), %d property/meta line(s)" \
+                % [new_ext_lines.size(), new_resource_lines.size()])
+    else:
+        printerr("post_process_tres: could not write back to " + abs_path)
+
+# Resolve a property value before assigning it to a resource.
+# - String starting with "res://" → load() the resource file
+# - Dictionary with "_type" key → create an inline subresource
+# - Array → resolve each element recursively
+# - Anything else → pass through unchanged
+func resolve_property_value(value):
+    if value is String:
+        if value.begins_with("res://"):
+            if ResourceLoader.exists(value):
+                return load(value)
+            push_warning("Resource path not found, treating as plain string: " + value)
+        return value
+    elif value is Dictionary:
+        if value.has("_type"):
+            return create_subresource(value)
+        return value
+    elif value is Array:
+        var resolved: Array = []
+        for item in value:
+            resolved.append(resolve_property_value(item))
+        return resolved
+    return value
+
+# Promote a plain Array to the typed array the property actually declares.
+# ResourceSaver uses the array's type metadata to decide how to serialize elements;
+# an untyped Array causes external resource references (e.g. AudioStream) to be dropped.
+#
+# Godot encodes typed-array hints in hint_string as "ELEM_TYPE/ELEM_HINT:ClassName",
+# e.g. "24/34:AudioStream" → element type TYPE_OBJECT (24), class AudioStream.
+func coerce_array_type(resource: Resource, prop_name: String, arr: Array) -> Array:
+    for prop in resource.get_property_list():
+        if prop["name"] != prop_name:
+            continue
+        if prop["type"] != TYPE_ARRAY:
+            break
+        var hint_string: String = prop.get("hint_string", "")
+        if hint_string.is_empty():
+            break
+        # Extract element class name after the last ":"
+        var colon_pos: int = hint_string.rfind(":")
+        if colon_pos < 0:
+            break
+        var elem_class: String = hint_string.substr(colon_pos + 1).strip_edges()
+        if elem_class.is_empty():
+            break
+        # Extract element Variant type from before the first "/" or ":"
+        var slash_pos: int = hint_string.find("/")
+        var type_end: int = slash_pos if slash_pos >= 0 else colon_pos
+        var elem_type: int = int(hint_string.substr(0, type_end))
+        if elem_type == TYPE_OBJECT:
+            if ClassDB.class_exists(elem_class):
+                # Built-in or class_name-registered type — use the class name directly.
+                if debug_mode:
+                    print("Coercing array '%s' to typed Array[%s] via ClassDB" % [prop_name, elem_class])
+                return Array(arr, TYPE_OBJECT, elem_class, null)
+            else:
+                # Script-defined type not in ClassDB (e.g. class_name GCFootstepSurface).
+                # Array(arr, TYPE_OBJECT, "UnknownClass", null) silently produces an empty
+                # array. Instead, pass the Script object as the 4th argument with an empty
+                # class name — this is how Godot represents Array[ScriptClass] internally
+                # and lets ResourceSaver emit correct ExtResource entries.
+                var script_path: String = find_script_by_class_name(elem_class)
+                if not script_path.is_empty():
+                    var script = load(script_path)
+                    if script:
+                        if debug_mode:
+                            print("Coercing array '%s' to typed Array[%s] via script %s" % [prop_name, elem_class, script_path])
+                        return Array(arr, TYPE_OBJECT, "", script)
+                if debug_mode:
+                    print("Could not find script for '%s', using plain array for '%s'" % [elem_class, prop_name])
+                return arr
+        if debug_mode:
+            print("Coercing array '%s' to typed (type %d)" % [prop_name, elem_type])
+        return Array(arr, elem_type, elem_class, null)
+    return arr
+
+# Create an inline subresource from a descriptor dictionary.
+# Required key: "_type" — the resource class name.
+# Optional key: "_script" — path to the GDScript file (when class_name is not registered).
+# All other keys are treated as properties to set on the new instance.
+func create_subresource(descriptor: Dictionary) -> Resource:
+    var sub_type: String = descriptor["_type"]
+    var sub_resource: Resource = null
+
+    # Strategy 1: explicit _script path
+    if descriptor.has("_script"):
+        var script_path: String = descriptor["_script"]
+        if not script_path.begins_with("res://"):
+            script_path = "res://" + script_path
+        if ResourceLoader.exists(script_path):
+            var script = load(script_path)
+            if script and script is GDScript:
+                var instance = script.new()
+                if instance is Resource:
+                    sub_resource = instance as Resource
+        if not sub_resource:
+            push_warning("Could not instantiate subresource via _script: " + descriptor["_script"])
+
+    # Strategy 2: ClassDB (built-ins + class_name-registered scripts)
+    if not sub_resource and ClassDB.class_exists(sub_type):
+        if ClassDB.is_parent_class(sub_type, "Resource"):
+            sub_resource = ClassDB.instantiate(sub_type) as Resource
+
+    # Strategy 3: scan project files for the class_name declaration
+    if not sub_resource:
+        var found_path = find_script_by_class_name(sub_type)
+        if not found_path.is_empty():
+            var script = load(found_path)
+            if script and script is GDScript:
+                var instance = script.new()
+                if instance is Resource:
+                    sub_resource = instance as Resource
+
+    if not sub_resource:
+        push_warning("Could not create subresource of type '" + sub_type +
+            "'. Skipping. Provide '_script' if the class is not registered via class_name.")
+        return null
+
+    # Apply properties recursively (skip meta-keys prefixed with "_")
+    for key in descriptor:
+        if key.begins_with("_"):
+            continue
+        if key in sub_resource:
+            sub_resource.set(key, resolve_property_value(descriptor[key]))
+        else:
+            push_warning("Property not found on subresource " + sub_type + ": " + key)
+
+    if debug_mode:
+        print("Created subresource of type: " + sub_type)
+    return sub_resource
 
 # List all assets in the Godot project with metadata and UIDs (Godot 4.5+)
 func list_assets(params):
